@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle2, ArrowRight, MessageCircle } from 'lucide-react';
 import { programService } from '../../services/dataService';
+import { BRAND } from '../../config/brand';
 import Button from '../../components/common/Button';
 
 export default function StudentProgramsPage() {
@@ -46,10 +47,15 @@ export default function StudentProgramsPage() {
                 </p>
               </div>
 
-              <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {prog.price}
-                </span>
+              <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+                <Button
+                  href={`https://wa.me/6281234567890?text=${encodeURIComponent(`Halo ${BRAND.name}, saya ingin konsultasi mengenai program ${prog.title}, jadwal pendaftaran, dan informasi biayanya.`)}`}
+                  variant="primary"
+                  size="sm"
+                  icon={MessageCircle}
+                >
+                  Konsultasi via WhatsApp
+                </Button>
                 <Button to={`/programs/${prog.slug}`} variant="outline" size="sm" icon={ArrowRight}>
                   Detail Kurikulum
                 </Button>

@@ -13,7 +13,8 @@ import {
   GraduationCap,
   CalendarCheck,
   FileCheck,
-  Bell
+  Bell,
+  MessageCircle
 } from 'lucide-react';
 import { studentAuthService } from '../../services/dataService';
 import { BRAND } from '../../config/brand';
@@ -228,12 +229,12 @@ export default function StudentDashboardPage() {
 
           <Button
             href={BRAND.whatsappUrl}
-            variant="outline"
+            variant="primary"
             size="md"
-            icon={PhoneCall}
+            icon={MessageCircle}
             style={{ width: '100%', justifyContent: 'center' }}
           >
-            Chat Konselor via WhatsApp
+            Konsultasi via WhatsApp
           </Button>
         </div>
       </div>

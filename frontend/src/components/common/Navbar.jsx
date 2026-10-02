@@ -223,38 +223,9 @@ export default function Navbar() {
                     <span>{currentStudent.name ? currentStudent.name.split(' ')[0] : 'Siswa'} (Dashboard)</span>
                   </Link>
                 ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="navbar-student-login-link"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.86rem',
-                        fontWeight: 700,
-                        color: 'var(--text-secondary)',
-                        textDecoration: 'none',
-                        transition: 'all 0.15s ease',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = 'var(--vermilion)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = 'var(--text-secondary)';
-                      }}
-                    >
-                      <LogIn size={15} />
-                      <span>Masuk</span>
-                    </Link>
-
-                    <Button to="/register" variant="primary" size="sm" icon={ArrowRight}>
-                      {t('nav.registerNow', 'Daftar Sekarang')}
-                    </Button>
-                  </>
+                  <Button to="/login" variant="primary" size="sm" icon={LogIn}>
+                    {t('nav.loginRegister', 'Masuk / Daftar')}
+                  </Button>
                 )}
               </div>
 
@@ -453,14 +424,9 @@ export default function Navbar() {
                   Dashboard Siswa ({currentStudent.name ? currentStudent.name.split(' ')[0] : 'Siswa'})
                 </Button>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                  <Button to="/login" variant="outline" size="md" icon={LogIn} iconPosition="left">
-                    Masuk
-                  </Button>
-                  <Button to="/register" variant="primary" size="md" icon={UserPlus} iconPosition="left">
-                    Daftar
-                  </Button>
-                </div>
+                <Button to="/login" variant="primary" size="md" icon={LogIn} iconPosition="left">
+                  {t('nav.loginRegister', 'Masuk / Daftar')}
+                </Button>
               )}
               <Button
                 href={BRAND.whatsappUrl}

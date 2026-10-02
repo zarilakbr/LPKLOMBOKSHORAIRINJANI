@@ -18,6 +18,7 @@ import { mockRegistrations } from '../data/mockRegistrations';
 import { mockGallery } from '../data/mockGallery';
 import { mockUsers } from '../data/mockUsers';
 import { mockActivityLogs } from '../data/mockActivityLogs';
+import { apiAuth } from './apiClient';
 
 // In-memory clones to allow interactive mock CRUD operations during session
 let inMemoryPrograms = [...mockPrograms];
@@ -275,17 +276,52 @@ export const settingsService = {
 export const authService = {
   /**
    * Unified Authentication with Exactly 3 Roles: SISWA, PENGAJAR, ADMIN
-   * Authorization Authority: Verified user role from account, NOT frontend selection.
+   * Authorization Authority: Verified user role from backend/account, NOT frontend selection.
    */
-  async login(email, password, intendedRole = 'SISWA') {
+  async login(email, password, intendedRole = 'SISWA', turnstileToken = null) {
     if (!email || !password) {
       return Promise.reject(new Error('Alamat email dan kata sandi wajib diisi.'));
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Attempt Laravel Backend Authentication with Turnstile Verification
+    try {
+      const response = await apiAuth.login(normalizedEmail, password, turnstileToken);
+      if (response && response.success && response.data) {
+        const { token, user, role, redirectUrl } = response.data;
+        const verifiedRole = role || user.role || 'SISWA';
+
+        const storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : (typeof global !== 'undefined' && global.localStorage ? global.localStorage : null);
+        if (storage) {
+          storage.setItem('lpk_auth_token', token);
+          storage.setItem('lpk_auth_user', JSON.stringify(user));
+          if (verifiedRole === 'ADMIN') storage.setItem('lpk_admin_user', JSON.stringify(user));
+          else if (verifiedRole === 'PENGAJAR') storage.setItem('lpk_teacher_user', JSON.stringify(user));
+          else storage.setItem('lpk_student_user', JSON.stringify(user));
+        }
+
+        return {
+          success: true,
+          token,
+          user,
+          role: verifiedRole,
+          redirectUrl: redirectUrl || this.getDashboardRoute(verifiedRole)
+        };
+      }
+    } catch (apiErr) {
+      // If server responded with a validation error (422), unauthorized (401), or forbidden (403), throw server message!
+      if (apiErr.response && apiErr.response.data) {
+        const errorData = apiErr.response.data;
+        const message = errorData.message || (errorData.errors ? Object.values(errorData.errors)[0]?.[0] : null) || 'Login gagal. Periksa kembali email dan kata sandi Anda.';
+        return Promise.reject(new Error(message));
+      }
+      // If network error / backend offline, continue to fallback below
+    }
+
+    // 2. Development / Offline Fallback conforming to 3 roles
     let user = inMemoryUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
 
-    // Development fallback mock account generator conforming to 3 roles
     if (!user) {
       const validRole = ['SISWA', 'PENGAJAR', 'ADMIN'].includes(intendedRole) ? intendedRole : 'SISWA';
       user = {
@@ -301,27 +337,17 @@ export const authService = {
       inMemoryUsers = [...inMemoryUsers, user];
     }
 
-    // Role-based target dashboard mapping
-    let redirectUrl = '/dashboard';
-    if (user.role === 'PENGAJAR') {
-      redirectUrl = '/teacher/dashboard';
-    } else if (user.role === 'ADMIN') {
-      redirectUrl = '/admin/dashboard';
-    } else {
-      user.role = 'SISWA';
-      redirectUrl = '/dashboard';
-    }
+    let redirectUrl = this.getDashboardRoute(user.role);
 
     const storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : (typeof global !== 'undefined' && global.localStorage ? global.localStorage : null);
 
     if (storage) {
       storage.setItem('lpk_auth_user', JSON.stringify(user));
-      // Backward compatibility for existing submodules
       if (user.role === 'ADMIN') {
         storage.setItem('lpk_admin_user', JSON.stringify(user));
       } else if (user.role === 'PENGAJAR') {
         storage.setItem('lpk_teacher_user', JSON.stringify(user));
-      } else if (user.role === 'SISWA') {
+      } else {
         storage.setItem('lpk_student_user', JSON.stringify(user));
       }
     }
@@ -334,14 +360,129 @@ export const authService = {
     });
   },
 
+  /**
+   * Register a new student account via backend or offline fallback.
+   */
+  async register({ fullName, email, phone, password, programInterest, japanGoal, turnstileToken = null }) {
+    if (!fullName || !email || !password) {
+      return Promise.reject(new Error('Nama lengkap, email, dan kata sandi wajib diisi.'));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Attempt Laravel Backend Registration with Turnstile Verification
+    try {
+      const response = await apiAuth.register({
+        name: fullName.trim(),
+        email: normalizedEmail,
+        password,
+        phone: phone || '',
+        turnstileToken
+      });
+
+      if (response && response.success && response.data) {
+        const { token, user, role, redirectUrl } = response.data;
+        const storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : (typeof global !== 'undefined' && global.localStorage ? global.localStorage : null);
+        if (storage) {
+          storage.setItem('lpk_auth_token', token);
+          storage.setItem('lpk_auth_user', JSON.stringify(user));
+          storage.setItem('lpk_student_user', JSON.stringify(user));
+        }
+
+        return {
+          success: true,
+          token,
+          user,
+          role: role || 'SISWA',
+          redirectUrl: redirectUrl || '/dashboard'
+        };
+      }
+    } catch (apiErr) {
+      if (apiErr.response && apiErr.response.data) {
+        const errorData = apiErr.response.data;
+        const message = errorData.message || (errorData.errors ? Object.values(errorData.errors)[0]?.[0] : null) || 'Pendaftaran gagal.';
+        return Promise.reject(new Error(message));
+      }
+    }
+
+    // 2. Offline / Mock fallback
+    const existing = inMemoryUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
+    if (existing) {
+      return Promise.reject(new Error('Alamat email sudah terdaftar. Silakan masuk menggunakan akun Anda.'));
+    }
+
+    const newStudentId = Date.now();
+    const newStudent = {
+      id: newStudentId,
+      name: fullName.trim(),
+      email: normalizedEmail,
+      phone: phone || '',
+      role: 'SISWA',
+      status: 'ACTIVE',
+      lastLogin: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      department: 'Calon Siswa'
+    };
+
+    inMemoryUsers = [...inMemoryUsers, newStudent];
+
+    if (programInterest) {
+      const regCode = 'REG-' + new Date().getFullYear() + '-' + String(Math.floor(1000 + Math.random() * 9000));
+      const initialReg = {
+        id: Date.now() + 1,
+        userId: newStudentId,
+        registrationCode: regCode,
+        fullName: fullName.trim(),
+        email: normalizedEmail,
+        phone: phone || '',
+        dob: '',
+        education: 'SMA/SMK',
+        city: 'Mataram',
+        programInterest: programInterest || 'Bahasa Jepang Dasar (N5)',
+        japaneseLevel: 'Belum Pernah Belajar (Nol)',
+        japanGoal: japanGoal || 'Persiapan Studi & Kerja ke Jepang',
+        status: 'NEW',
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        adminNotes: 'Pendaftaran mandiri siswa baru.'
+      };
+      inMemoryRegistrations = [initialReg, ...inMemoryRegistrations];
+    }
+
+    const storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : (typeof global !== 'undefined' && global.localStorage ? global.localStorage : null);
+    if (storage) {
+      storage.setItem('lpk_auth_user', JSON.stringify(newStudent));
+      storage.setItem('lpk_student_user', JSON.stringify(newStudent));
+    }
+
+    return Promise.resolve({ success: true, user: newStudent, redirectUrl: '/dashboard' });
+  },
+
+  /**
+   * Request Google OAuth URL from Backend.
+   * Throws error if backend has not configured Google OAuth.
+   */
+  async getGoogleOAuthUrl() {
+    try {
+      const res = await apiAuth.getGoogleOAuthUrl();
+      if (res && res.data && res.data.configured && res.data.url) {
+        return res.data.url;
+      }
+      throw new Error('Layanan Google OAuth belum dikonfigurasi di server backend. Silakan gunakan email dan kata sandi.');
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Layanan Google OAuth belum dikonfigurasi di server backend.';
+      throw new Error(msg);
+    }
+  },
+
   logout() {
     const storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : (typeof global !== 'undefined' && global.localStorage ? global.localStorage : null);
     if (storage) {
+      storage.removeItem('lpk_auth_token');
       storage.removeItem('lpk_auth_user');
       storage.removeItem('lpk_admin_user');
       storage.removeItem('lpk_teacher_user');
       storage.removeItem('lpk_student_user');
     }
+    apiAuth.logout();
     return Promise.resolve(true);
   },
 
@@ -377,64 +518,12 @@ export const authService = {
 };
 
 export const studentAuthService = {
-  async login(email, password) {
-    return authService.login(email, password, 'SISWA');
+  async login(email, password, turnstileToken = null) {
+    return authService.login(email, password, 'SISWA', turnstileToken);
   },
 
-  async register({ fullName, email, phone, password, programInterest, japanGoal }) {
-    if (!fullName || !email || !password) {
-      return Promise.reject(new Error('Nama lengkap, email, dan kata sandi wajib diisi.'));
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const existing = inMemoryUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
-    if (existing) {
-      return Promise.reject(new Error('Alamat email sudah terdaftar. Silakan masuk menggunakan akun Anda.'));
-    }
-
-    const newStudentId = Date.now();
-    const newStudent = {
-      id: newStudentId,
-      name: fullName.trim(),
-      email: normalizedEmail,
-      phone: phone || '',
-      role: 'SISWA',
-      status: 'ACTIVE',
-      lastLogin: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      department: 'Calon Siswa'
-    };
-
-    inMemoryUsers = [...inMemoryUsers, newStudent];
-
-    // Connect registration to logged-in student: registrations.user_id -> users.id
-    if (programInterest) {
-      const regCode = 'REG-' + new Date().getFullYear() + '-' + String(Math.floor(1000 + Math.random() * 9000));
-      const initialReg = {
-        id: Date.now() + 1,
-        userId: newStudentId,
-        registrationCode: regCode,
-        fullName: fullName.trim(),
-        email: normalizedEmail,
-        phone: phone || '',
-        dob: '',
-        education: 'SMA/SMK',
-        city: 'Mataram',
-        programInterest: programInterest || 'Bahasa Jepang Dasar (N5)',
-        japaneseLevel: 'Belum Pernah Belajar (Nol)',
-        japanGoal: japanGoal || 'Persiapan Studi & Kerja ke Jepang',
-        status: 'NEW',
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        adminNotes: 'Pendaftaran mandiri siswa baru.'
-      };
-      inMemoryRegistrations = [initialReg, ...inMemoryRegistrations];
-    }
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem('lpk_auth_user', JSON.stringify(newStudent));
-      window.localStorage.setItem('lpk_student_user', JSON.stringify(newStudent));
-    }
-
-    return Promise.resolve({ success: true, user: newStudent, redirectUrl: '/dashboard' });
+  async register(data) {
+    return authService.register(data);
   },
 
   logout() {

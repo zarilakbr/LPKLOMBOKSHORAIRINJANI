@@ -2,7 +2,6 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import AppRoutes from './src/AppRoutes.jsx';
-import { ThemeProvider } from './src/context/ThemeContext.jsx';
 import { LanguageProvider } from './src/context/LanguageContext.jsx';
 
 const allRoutes = [
@@ -124,16 +123,12 @@ for (const route of allRoutes) {
 
     const html = renderToString(
       React.createElement(
-        ThemeProvider,
+        LanguageProvider,
         null,
         React.createElement(
-          LanguageProvider,
-          null,
-          React.createElement(
-            MemoryRouter,
-            { initialEntries: [route] },
-            React.createElement(AppRoutes, null)
-          )
+          MemoryRouter,
+          { initialEntries: [route] },
+          React.createElement(AppRoutes, null)
         )
       )
     );

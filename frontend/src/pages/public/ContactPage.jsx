@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, MessageSquare, Send, CheckCircle2, ArrowRight } from 'lucide-react';
 import SectionHeading from '../../components/common/SectionHeading';
 import Button from '../../components/common/Button';
+import TurnstileWidget from '../../components/common/TurnstileWidget';
 import { mockSiteSettings } from '../../data/mockSiteSettings';
 
 export default function ContactPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -191,6 +193,11 @@ export default function ContactPage() {
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     />
                   </div>
+
+                  <TurnstileWidget
+                    onVerify={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken('')}
+                  />
 
                   <Button type="submit" variant="primary" size="lg" icon={Send} style={{ width: '100%' }}>
                     Kirim Pesan Sekarang
