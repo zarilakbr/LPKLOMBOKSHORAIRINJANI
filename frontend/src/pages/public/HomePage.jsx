@@ -34,7 +34,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div>
+    <div className="home-page">
       {/* 2. Hero Section */}
       <Hero />
 

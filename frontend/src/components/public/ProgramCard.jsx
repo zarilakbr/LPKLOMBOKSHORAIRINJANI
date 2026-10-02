@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, CalendarDays, ArrowRight, BookOpen } from 'lucide-react';
+import { Clock, CalendarDays, ArrowRight, MessageCircle } from 'lucide-react';
 import Badge from '../common/Badge';
+import { BRAND } from '../../config/brand';
 
 export default function ProgramCard({ program }) {
+  const waUrl = `${BRAND.whatsappUrl}%20mengenai%20program%20${encodeURIComponent(program.title)}`;
+
   return (
     <div className="card-editorial" style={{ height: '100%', padding: 0, overflow: 'hidden' }}>
       {/* Top Image Container */}
@@ -80,14 +83,26 @@ export default function ProgramCard({ program }) {
           </div>
         </div>
 
-        {/* Footer CTA */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Investasi Program</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {program.priceEstimate}
-            </div>
-          </div>
+        {/* Footer CTA: Consultation via WhatsApp & Detail Link */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.86rem',
+              fontWeight: 700,
+              color: 'var(--emerald, #059669)',
+              textDecoration: 'none'
+            }}
+            title="Konsultasi Biaya & Pendaftaran via WhatsApp"
+          >
+            <MessageCircle size={15} style={{ flexShrink: 0 }} />
+            <span>Via Konsultasi WhatsApp</span>
+          </a>
 
           <Link
             to={`/programs/${program.slug}`}

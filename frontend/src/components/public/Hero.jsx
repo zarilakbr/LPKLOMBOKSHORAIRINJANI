@@ -19,7 +19,6 @@ export default function Hero() {
         justifyContent: 'center',
         paddingTop: 'clamp(4.5rem, 8vw, 7rem)',
         paddingBottom: 'clamp(4.5rem, 8vw, 7rem)',
-        overflow: 'hidden',
         color: 'var(--text-primary)'
       }}
     >

@@ -21,25 +21,33 @@ export default function CTASection({
       style={{
         backgroundColor: 'var(--bg-dark)',
         color: '#FFFFFF',
-        position: 'relative',
-        overflow: 'hidden'
+        position: 'relative'
       }}
       className="section-py"
     >
-      {/* Editorial Decorative Japanese Grid Accent */}
+      {/* Editorial Decorative Japanese Grid Accent (scoped overflow) */}
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '500px',
-          height: '100%',
-          opacity: 0.04,
-          pointerEvents: 'none',
-          backgroundImage: 'radial-gradient(#FFFFFF 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
+          inset: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none'
         }}
-      />
+        aria-hidden="true"
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '500px',
+            height: '100%',
+            opacity: 0.04,
+            backgroundImage: 'radial-gradient(#FFFFFF 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+      </div>
 
       <div className="container" style={{ position: 'relative', zIndex: 2 }}>
         <div

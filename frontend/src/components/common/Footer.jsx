@@ -9,12 +9,18 @@ export default function Footer() {
 
   return (
     <footer
+      className="site-footer"
       style={{
         backgroundColor: 'var(--bg-dark)',
         color: 'var(--text-on-dark)',
         borderTop: '1px solid var(--border-dark)',
         paddingTop: 'clamp(3rem, 5vw, 4.5rem)',
-        paddingBottom: 'clamp(2rem, 4vw, 3rem)'
+        paddingBottom: 'clamp(2rem, 4vw, 3rem)',
+        position: 'relative',
+        zIndex: 2,
+        width: '100%',
+        marginTop: 'auto',
+        boxSizing: 'border-box'
       }}
     >
       <div className="container">

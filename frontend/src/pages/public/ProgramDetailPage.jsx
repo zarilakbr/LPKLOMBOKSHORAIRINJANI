@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Clock, CalendarDays, Users, Award, CheckCircle2, ArrowRight, ArrowLeft, BookOpen, ShieldCheck } from 'lucide-react';
+import { Clock, CalendarDays, Users, Award, CheckCircle2, ArrowRight, ArrowLeft, BookOpen, ShieldCheck, MessageCircle } from 'lucide-react';
 import { programService } from '../../services/dataService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
@@ -137,11 +137,12 @@ export default function ProgramDetailPage() {
                   boxShadow: 'var(--shadow-card)'
                 }}
               >
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--vermilion)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--vermilion)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
                   Biaya Pendidikan
                 </div>
-                <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: '1.5rem' }}>
-                  {program.priceEstimate}
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--emerald, #059669)', lineHeight: 1.2, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MessageCircle size={22} style={{ flexShrink: 0 }} />
+                  <span>Via Konsultasi WhatsApp</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '1.5rem' }}>
