@@ -14,8 +14,7 @@
 
 .student-layout {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -30,6 +29,8 @@
   flex-direction: column;
   flex-shrink: 0;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: sticky;
+  top: 0;
   height: 100vh;
   overflow: hidden;
   z-index: 120;
@@ -101,9 +102,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
   background-color: var(--bg-primary);
 }
 
@@ -112,8 +111,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .student-topbar {
@@ -125,6 +122,8 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
   z-index: 80;
 }
 
