@@ -63,6 +63,9 @@ export default function TeacherAttendancePage() {
     }
 
     setLoading(true);
+    let studentsError = false;
+    let attendanceError = false;
+
     try {
       const [stuRes, attRes] = await Promise.allSettled([
         apiClient.get(`/teacher/classes/${selectedClassId}/students`),
@@ -71,30 +74,57 @@ export default function TeacherAttendancePage() {
         })
       ]);
 
-      let stuList = [];
+      // PERBAIKAN 1 — PARSING STUDENTS DEFENSIVE
       if (stuRes.status === 'fulfilled' && stuRes.value.data?.success) {
-        stuList = stuRes.value.data.data || [];
+        const payload = stuRes.value.data?.data;
+        const stuList = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.students)
+          ? payload.students
+          : [];
         setStudents(stuList);
+      } else {
+        studentsError = true;
+        setStudents([]);
       }
 
+      // PERBAIKAN 2 — ATTENDANCE RESPONSE DEFENSIVE
       const attMap = {};
       if (attRes.status === 'fulfilled' && attRes.value.data?.success) {
-        const attList = attRes.value.data.data || [];
+        const attList = Array.isArray(attRes.value.data?.data)
+          ? attRes.value.data.data
+          : [];
         attList.forEach((att) => {
-          const uid = att.userId || att.user_id;
-          attMap[uid] = {
-            id: att.id,
-            status: att.status,
-            notes: att.notes || '',
-            checkInAt: att.checkInAt || att.check_in_at
-          };
+          if (att) {
+            const uid = att.userId || att.user_id;
+            if (uid) {
+              attMap[uid] = {
+                id: att.id,
+                status: att.status,
+                notes: att.notes || '',
+                checkInAt: att.checkInAt || att.check_in_at
+              };
+            }
+          }
         });
+      } else {
+        attendanceError = true;
       }
       setAttendances(attMap);
+
+      // PERBAIKAN 5 — ERROR STATE FEEDBACK
+      if (studentsError && attendanceError) {
+        setFeedback({ type: 'error', message: 'Gagal memuat daftar siswa dan data presensi kelas.' });
+      } else if (studentsError) {
+        setFeedback({ type: 'error', message: 'Gagal memuat daftar siswa kelas.' });
+      } else if (attendanceError) {
+        setFeedback({ type: 'error', message: 'Gagal memuat data presensi kelas.' });
+      }
     } catch (err) {
       console.error('Failed to load attendance roster:', err);
       setFeedback({ type: 'error', message: 'Gagal memuat data presensi kelas.' });
     } finally {
+      // PERBAIKAN 3 — LOADING HARUS SELALU SELESAI
       setLoading(false);
     }
   }, [selectedClassId, selectedDate]);
@@ -112,25 +142,35 @@ export default function TeacherAttendancePage() {
 
   // REALTIME LISTENERS
   useRealtimeEvent('attendance.recorded', (data) => {
-    if (String(data.classId) === String(selectedClassId) && data.attendanceDate === selectedDate) {
+    if (!data) return;
+    const cid = data.classId || data.class_id;
+    const adate = data.attendanceDate || data.attendance_date;
+    const uid = data.userId || data.user_id;
+
+    if (String(cid) === String(selectedClassId) && adate === selectedDate && uid) {
       setAttendances((prev) => ({
         ...prev,
-        [data.userId]: {
+        [uid]: {
           id: data.id,
           status: data.status,
           notes: data.notes || '',
-          checkInAt: data.checkInAt
+          checkInAt: data.checkInAt || data.check_in_at
         }
       }));
     }
   });
 
   useRealtimeEvent('attendance.updated', (data) => {
-    if (String(data.classId) === String(selectedClassId) && data.attendanceDate === selectedDate) {
+    if (!data) return;
+    const cid = data.classId || data.class_id;
+    const adate = data.attendanceDate || data.attendance_date;
+    const uid = data.userId || data.user_id;
+
+    if (String(cid) === String(selectedClassId) && adate === selectedDate && uid) {
       setAttendances((prev) => ({
         ...prev,
-        [data.userId]: {
-          ...prev[data.userId],
+        [uid]: {
+          ...prev[uid],
           id: data.id,
           status: data.status,
           notes: data.notes || ''
@@ -179,11 +219,12 @@ export default function TeacherAttendancePage() {
 
   // Quick mark all as Hadir
   const handleMarkAllHadir = async () => {
-    if (students.length === 0) return;
+    const safeStudents = Array.isArray(students) ? students : [];
+    if (safeStudents.length === 0) return;
     setLoading(true);
     let successCount = 0;
 
-    for (const stu of students) {
+    for (const stu of safeStudents) {
       try {
         await apiClient.post('/teacher/attendance', {
           class_id: Number(selectedClassId),
@@ -205,6 +246,9 @@ export default function TeacherAttendancePage() {
     loadRosterAndAttendance();
   };
 
+  // PERBAIKAN 4 — DEFENSIVE ARRAY FOR RENDERING
+  const safeStudents = Array.isArray(students) ? students : [];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Top Header */}
@@ -221,7 +265,7 @@ export default function TeacherAttendancePage() {
         <button
           type="button"
           onClick={handleMarkAllHadir}
-          disabled={students.length === 0 || loading}
+          disabled={safeStudents.length === 0 || loading}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -233,8 +277,8 @@ export default function TeacherAttendancePage() {
             borderRadius: 'var(--radius-sm)',
             fontSize: '0.85rem',
             fontWeight: 700,
-            cursor: students.length === 0 || loading ? 'not-allowed' : 'pointer',
-            opacity: students.length === 0 || loading ? 0.6 : 1
+            cursor: safeStudents.length === 0 || loading ? 'not-allowed' : 'pointer',
+            opacity: safeStudents.length === 0 || loading ? 0.6 : 1
           }}
         >
           <CheckCircle2 size={16} />
@@ -339,7 +383,7 @@ export default function TeacherAttendancePage() {
           <div style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Memuat daftar siswa & presensi...</p>
           </div>
-        ) : students.length === 0 ? (
+        ) : safeStudents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
             <Users size={38} style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -363,7 +407,7 @@ export default function TeacherAttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {students.map((stu, idx) => {
+                {safeStudents.map((stu, idx) => {
                   const currentAtt = attendances[stu.id] || null;
                   const currentStatus = (currentAtt?.status || '').toLowerCase();
 
