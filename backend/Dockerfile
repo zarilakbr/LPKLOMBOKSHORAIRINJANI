@@ -29,6 +29,10 @@ RUN sed -i 's#DocumentRoot /var/www/html#DocumentRoot /var/www/html/public#' /et
     && sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/d' /etc/apache2/apache2.conf \
     && printf '\n<Directory /var/www/html/public>\n    AllowOverride All\n    Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+ENTRYPOINT ["docker-entrypoint.sh"]
