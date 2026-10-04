@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -14,25 +15,43 @@ export default function AdminRegistrationsPage() {
   const [viewItem, setViewItem] = useState(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [newStatus, setNewStatus] = useState('NEW');
   const [adminNotes, setAdminNotes] = useState('');
 
-  const loadData = () => {
-    registrationService.getAll().then((data) => setRegistrations(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await registrationService.getAll();
+      setRegistrations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load registrations:', err);
+      setError('Gagal memuat data pendaftaran siswa.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = registrations.filter((r) => {
+  const filtered = (registrations || []).filter((r) => {
+    const fullName = String(r?.fullName ?? '').toLowerCase();
+    const phone = String(r?.phone ?? '');
+    const city = String(r?.city ?? '').toLowerCase();
+    const regCode = String(r?.registrationCode ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
     const matchSearch =
-      r.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      r.phone.includes(search) ||
-      r.city.toLowerCase().includes(search.toLowerCase()) ||
-      r.registrationCode.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
+      fullName.includes(searchTerm) ||
+      phone.includes(search) ||
+      city.includes(searchTerm) ||
+      regCode.includes(searchTerm);
+    const matchStatus = filterStatus === 'ALL' || r?.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
@@ -83,6 +102,22 @@ export default function AdminRegistrationsPage() {
 
   return (
     <div>
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}

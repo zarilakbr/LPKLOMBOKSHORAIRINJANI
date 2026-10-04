@@ -13,8 +13,21 @@ return new class extends Migration
     {
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete()->index();
-            $table->foreignId('class_id')->constrained('classes')->cascadeOnDelete()->index();
+            $table->unsignedBigInteger('user_id');
+$table->unsignedBigInteger('class_id');
+
+$table->index('user_id');
+$table->index('class_id');
+
+$table->foreign('user_id', 'attendances_user_id_foreign')
+    ->references('id')
+    ->on('users')
+    ->cascadeOnDelete();
+
+$table->foreign('class_id', 'attendances_class_id_foreign')
+    ->references('id')
+    ->on('classes')
+    ->cascadeOnDelete();
             $table->date('attendance_date')->index();
             $table->timestamp('check_in_at')->nullable();
             $table->string('status')->default('hadir')->index(); // hadir, terlambat, izin, sakit, alpa

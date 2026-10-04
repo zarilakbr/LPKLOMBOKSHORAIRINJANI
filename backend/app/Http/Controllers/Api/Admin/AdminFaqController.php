@@ -20,11 +20,11 @@ class AdminFaqController extends BaseApiController
     {
         $query = Faq::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('question', 'like', "%{$search}%")
-                  ->orWhere('answer', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(question) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(answer) LIKE ?', [$term]);
             });
         }
 

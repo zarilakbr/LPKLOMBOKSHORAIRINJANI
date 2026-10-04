@@ -170,11 +170,11 @@ export default function ProgramDetailPage() {
                     Daftar Kelas Ini
                   </Button>
                   <Button
-                    href={`https://wa.me/6281234567890?text=Halo%20LPK%20Lombok%20Shorai%20Rinjani,%20saya%20tertarik%20dengan%20program%20${encodeURIComponent(program.title)}`}
+                    to="/contact"
                     variant="outline"
                     size="md"
                   >
-                    Konsultasi via WhatsApp
+                    Konsultasi Program
                   </Button>
                 </div>
               </div>

@@ -21,8 +21,21 @@ return new class extends Migration
             $table->text('address')->nullable();
             $table->string('city')->nullable();
             $table->date('dob')->nullable();
-            $table->foreignId('user_id')->nullable()->constrained('users')->cascadeOnDelete()->index();
-            $table->foreignId('program_id')->nullable()->constrained('programs')->nullOnDelete()->index();
+            $table->unsignedBigInteger('user_id')->nullable();
+	    $table->unsignedBigInteger('program_id')->nullable();
+
+            $table->index('user_id');
+            $table->index('program_id');
+
+            $table->foreign('user_id', 'registrations_user_id_foreign')
+            ->references('id')
+            ->on('users')
+            ->cascadeOnDelete();
+
+            $table->foreign('program_id', 'registrations_program_id_foreign')
+            ->references('id')
+            ->on('programs')
+            ->nullOnDelete();
             $table->string('education')->nullable();
             $table->string('program_interest')->nullable();
             $table->string('japanese_level')->nullable();

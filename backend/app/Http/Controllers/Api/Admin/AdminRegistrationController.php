@@ -22,14 +22,15 @@ class AdminRegistrationController extends BaseApiController
     {
         $query = Registration::with('program');
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('registration_code', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(full_name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(email) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(phone) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(registration_code) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(city) LIKE ?', [$term]);
             });
         }
 

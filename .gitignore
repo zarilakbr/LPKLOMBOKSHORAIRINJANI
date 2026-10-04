@@ -1,0 +1,30 @@
+@"
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Backend local secrets / backups
+backend/.env.sqlite-backup
+
+# Laravel generated/local files
+backend/vendor/
+backend/storage/
+backend/bootstrap/cache/
+
+# Frontend generated/local files
+frontend/node_modules/
+frontend/dist/
+
+# Local databases
+backend/database/database.sqlite
+
+# Logs
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+"@ | Set-Content -Encoding UTF8 D:\NGODING\LPK\.gitignore

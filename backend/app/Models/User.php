@@ -18,10 +18,14 @@ class User extends Authenticatable
     public const ROLE_SISWA = 'SISWA';
     public const ROLE_PENGAJAR = 'PENGAJAR';
     public const ROLE_ADMIN = 'ADMIN';
+    public const ROLE_STUDENT = self::ROLE_SISWA;
+    public const ROLE_TEACHER = self::ROLE_PENGAJAR;
 
-    // Supported account statuses
-    public const STATUS_ACTIVE = 'ACTIVE';
+    // Supported account statuses: PENDING, ACTIVE, REJECTED, SUSPENDED, INACTIVE
+    public const STATUS_PENDING = 'PENDING';
     public const STATUS_PENDING_VERIFICATION = 'PENDING_VERIFICATION';
+    public const STATUS_ACTIVE = 'ACTIVE';
+    public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_SUSPENDED = 'SUSPENDED';
     public const STATUS_INACTIVE = 'INACTIVE';
 
@@ -38,7 +42,11 @@ class User extends Authenticatable
         'password',
         'role', // 'SISWA', 'PENGAJAR', 'ADMIN'
         'department',
-        'status', // 'ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED', 'INACTIVE'
+        'status', // 'PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED', 'INACTIVE'
+        'approved_at',
+        'approved_by',
+        'rejected_at',
+        'rejection_reason',
         'last_login_at',
     ];
 
@@ -61,8 +69,10 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'last_login_at' => 'datetime',
-            'password' => 'hashed',
+            'last_login_at'     => 'datetime',
+            'approved_at'       => 'datetime',
+            'rejected_at'       => 'datetime',
+            'password'          => 'hashed',
         ];
     }
 
@@ -156,6 +166,38 @@ class User extends Authenticatable
     public function articles()
     {
         return $this->hasMany(Article::class, 'author_id');
+    }
+
+    /**
+     * Class enrollments for this student (when role is SISWA).
+     */
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class, 'user_id');
+    }
+
+    /**
+     * Active class enrollments for this student.
+     */
+    public function activeEnrollments()
+    {
+        return $this->hasMany(Enrollment::class, 'user_id')->where('status', Enrollment::STATUS_ACTIVE);
+    }
+
+    /**
+     * Materials authored by this user (when role is PENGAJAR).
+     */
+    public function materials()
+    {
+        return $this->hasMany(Material::class, 'teacher_id');
+    }
+
+    /**
+     * Administrator who approved this user account.
+     */
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -13,6 +14,10 @@ export default function AdminGalleryPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -23,18 +28,31 @@ export default function AdminGalleryPage() {
     status: 'ACTIVE'
   });
 
-  const loadData = () => {
-    galleryService.getAll().then((data) => setGallery(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await galleryService.getAll();
+      setGallery(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load gallery:', err);
+      setError('Gagal memuat data galeri.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = gallery.filter((g) => {
-    const matchSearch = g.title.toLowerCase().includes(search.toLowerCase()) ||
-      g.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'ALL' || g.category === filterCat;
+  const filtered = (gallery || []).filter((g) => {
+    const title = String(g?.title ?? '').toLowerCase();
+    const description = String(g?.description ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    const matchSearch = title.includes(searchTerm) || description.includes(searchTerm);
+    const matchCat = filterCat === 'ALL' || g?.category === filterCat;
     return matchSearch && matchCat;
   });
 
@@ -66,20 +84,46 @@ export default function AdminGalleryPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (modalMode === 'create') {
-      await galleryService.create(formData);
-    } else if (modalMode === 'edit' && selectedItem) {
-      await galleryService.update(selectedItem.id, formData);
+    if (!formData.title?.trim() || !formData.image?.trim()) {
+      setFeedback({ type: 'error', message: 'Judul dan URL gambar galeri wajib diisi.' });
+      return;
     }
-    setModalMode(null);
-    loadData();
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      if (modalMode === 'create') {
+        await galleryService.create(formData);
+        setFeedback({ type: 'success', message: 'Foto dokumentasi berhasil ditambahkan ke galeri.' });
+      } else if (modalMode === 'edit' && selectedItem) {
+        await galleryService.update(selectedItem.id, formData);
+        setFeedback({ type: 'success', message: 'Data foto galeri berhasil diperbarui.' });
+      }
+      setModalMode(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save gallery:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menyimpan foto galeri.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return;
+    setActionLoading(true);
+    setFeedback(null);
+    try {
       await galleryService.delete(deleteTarget.id);
+      setFeedback({ type: 'success', message: 'Foto galeri berhasil dihapus.' });
       setDeleteTarget(null);
-      loadData();
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete gallery item:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menghapus foto galeri.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -114,6 +158,39 @@ export default function AdminGalleryPage() {
 
   return (
     <div>
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: feedback.type === 'success' ? '#16A34A' : '#EF4444',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{feedback.message}</span>
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}
@@ -149,11 +226,21 @@ export default function AdminGalleryPage() {
         title={modalMode === 'create' ? 'Unggah Dokumentasi Foto' : 'Edit Dokumentasi Foto'}
         footer={
           <>
-            <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
+            <button
+              type="button"
+              onClick={() => setModalMode(null)}
+              className="btn btn-outline btn-sm"
+              disabled={actionLoading}
+            >
               Batal
             </button>
-            <button type="submit" form="gallery-form" className="btn btn-primary btn-sm">
-              Simpan Foto
+            <button
+              type="submit"
+              form="gallery-form"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Menyimpan...' : 'Simpan Foto'}
             </button>
           </>
         }

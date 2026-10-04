@@ -140,13 +140,14 @@ export default function CTASection({
               Daftar Program Sekarang
             </Button>
             <Button
-              href={mockSiteSettings.whatsappUrl}
+              to={mockSiteSettings.whatsappUrl ? undefined : "/contact"}
+              href={mockSiteSettings.whatsappUrl || undefined}
               variant="outline-white"
               size="lg"
               icon={PhoneCall}
               iconPosition="left"
             >
-              Konsultasi WhatsApp Gratis
+              Hubungi LPK
             </Button>
           </div>
         </div>

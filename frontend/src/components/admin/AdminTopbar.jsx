@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, ExternalLink } from 'lucide-react';
 import AdminNotificationPanel from './AdminNotificationPanel';
+import RealtimeStatusBadge from '../common/RealtimeStatusBadge';
 
 /**
  * Admin Topbar Component
@@ -44,6 +45,7 @@ export default function AdminTopbar({ onToggleMobile, title = 'Dashboard Manajem
 
         {/* Right Side: Notification & Quick Links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <RealtimeStatusBadge />
           <AdminNotificationPanel />
 
           {/* View Public Website */}

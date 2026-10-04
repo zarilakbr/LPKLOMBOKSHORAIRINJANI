@@ -18,9 +18,8 @@ class TurnstileService
     {
         $secretKey = config('services.turnstile.secret_key');
 
-        // Cloudflare official test tokens always pass
-        // Site key: 1x00000000000000000000AA -> generates token that verifies against test secret
-        if (!empty($token) && ($token === '1x00000000000000000000AA' || str_starts_with($token, 'XXXX.'))) {
+        // Cloudflare test tokens are strictly allowed only in local and testing environments
+        if (app()->environment('local', 'testing') && !empty($token) && ($token === '1x00000000000000000000AA' || str_starts_with($token, 'XXXX.'))) {
             return true;
         }
 

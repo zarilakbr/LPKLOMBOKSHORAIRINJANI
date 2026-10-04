@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             SiteSettingSeeder::class,
             ProgramSeeder::class,
             ClassSeeder::class,
+            EnrollmentSeeder::class,
             OpportunitySeeder::class,
             TestimonialSeeder::class,
             ArticleSeeder::class,

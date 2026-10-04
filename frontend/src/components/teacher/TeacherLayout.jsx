@@ -7,6 +7,7 @@ import {
   Users,
   BookOpen,
   ClipboardCheck,
+  FileCheck,
   User,
   Settings,
   LogOut,
@@ -18,6 +19,7 @@ import {
 import { authService } from '../../services/dataService';
 import { BRAND } from '../../config/brand';
 import TeacherNotificationPanel from './TeacherNotificationPanel';
+import RealtimeStatusBadge from '../common/RealtimeStatusBadge';
 import DashboardFooter from '../common/DashboardFooter';
 import { useLanguage, LANGUAGES } from '../../context/LanguageContext';
 import '../../styles/student.css';
@@ -57,7 +59,6 @@ export default function TeacherLayout() {
     navigate('/login?portal=teacher');
   };
 
-  // Exact 8 internal routes + Keluar = Exactly 9 menus per requirement
   const navItems = [
     { label: 'Dashboard', to: '/teacher/dashboard', icon: LayoutDashboard, end: true },
     { label: 'Kelas Saya', to: '/teacher/classes', icon: GraduationCap },
@@ -65,6 +66,7 @@ export default function TeacherLayout() {
     { label: 'Siswa', to: '/teacher/students', icon: Users },
     { label: 'Materi', to: '/teacher/materials', icon: BookOpen },
     { label: 'Presensi', to: '/teacher/attendance', icon: ClipboardCheck },
+    { label: 'Izin Siswa', to: '/teacher/permissions', icon: FileCheck },
     { label: 'Profil', to: '/teacher/profile', icon: User },
     { label: 'Pengaturan', to: '/teacher/settings', icon: Settings }
   ];
@@ -312,6 +314,7 @@ export default function TeacherLayout() {
 
           {/* Right: Notification & Website Link */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <RealtimeStatusBadge />
             <TeacherNotificationPanel />
 
             <Link

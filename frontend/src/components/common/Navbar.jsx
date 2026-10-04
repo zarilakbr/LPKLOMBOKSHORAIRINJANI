@@ -80,7 +80,7 @@ export default function Navbar() {
     { name: t('nav.classesFull', 'Jadwal Kelas'), to: '/classes' },
     { name: t('nav.opportunitiesFull', 'Peluang Karier'), to: '/opportunities' },
     { name: t('nav.journey', 'Alur Belajar'), to: '/journey' },
-    { name: t('nav.facilitiesFull', 'Fasilitas Kampus'), to: '/facilities' },
+    { name: t('nav.facilitiesFull', 'Fasilitas Lembaga'), to: '/facilities' },
     { name: t('nav.storiesFull', 'Cerita & Testimoni Alumni'), to: '/stories' },
     { name: t('nav.articlesFull', 'Artikel & Berita Jepang'), to: '/articles' },
     { name: t('nav.faq', 'Tanya Jawab (FAQ)'), to: '/faq' },

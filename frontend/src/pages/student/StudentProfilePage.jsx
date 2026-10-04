@@ -5,11 +5,11 @@ import Button from '../../components/common/Button';
 
 export default function StudentProfilePage() {
   const currentStudent = studentAuthService.getCurrentUser() || {
-    id: 101,
-    name: 'Ahmad Fajar Pratama',
-    email: 'ahmad.fajar@example.test',
-    phone: '081234567890',
-    department: 'Siswa Angkatan 48'
+    id: 0,
+    name: 'Siswa LPK',
+    email: '',
+    phone: '',
+    department: 'Siswa Aktif'
   };
 
   const [saved, setSaved] = useState(false);
@@ -109,7 +109,7 @@ export default function StudentProfilePage() {
               </label>
               <input
                 type="tel"
-                defaultValue={currentStudent.phone || '081234567890'}
+                defaultValue={currentStudent.phone || ''}
                 style={{
                   width: '100%',
                   padding: '0.7rem 0.85rem',

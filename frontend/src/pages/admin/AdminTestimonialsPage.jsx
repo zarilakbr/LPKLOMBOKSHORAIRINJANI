@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -12,36 +13,53 @@ export default function AdminTestimonialsPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
     program: 'Persiapan Kerja Tokutei Ginou (SSW)',
-    placement: '',
-    year: 'Alumni Angkatan 2026',
+    placement: 'Tokyo, Jepang',
+    year: '2026',
     quote: '',
     badge: 'SSW Manufaktur',
     status: 'ACTIVE'
   });
 
-  const loadData = () => {
-    testimonialService.getAll().then((data) => setTestimonials(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await testimonialService.getAll();
+      setTestimonials(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load testimonials:', err);
+      setError('Gagal memuat data testimoni alumni.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = testimonials.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.placement.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (testimonials || []).filter((t) => {
+    const name = String(t?.name ?? '').toLowerCase();
+    const placement = String(t?.placement ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    return name.includes(searchTerm) || placement.includes(searchTerm);
+  });
 
   const handleOpenCreate = () => {
     setFormData({
       name: '',
       program: 'Persiapan Kerja Tokutei Ginou (SSW)',
-      placement: 'Tokyo Metropolitan',
-      year: 'Alumni Angkatan 2026',
+      placement: 'Tokyo, Jepang',
+      year: '2026',
       quote: '',
       badge: 'SSW Kaigo',
       status: 'ACTIVE'
@@ -66,20 +84,46 @@ export default function AdminTestimonialsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (modalMode === 'create') {
-      await testimonialService.create(formData);
-    } else if (modalMode === 'edit' && selectedItem) {
-      await testimonialService.update(selectedItem.id, formData);
+    if (!formData.name?.trim() || !formData.quote?.trim()) {
+      setFeedback({ type: 'error', message: 'Nama dan isi kutipan testimoni wajib diisi.' });
+      return;
     }
-    setModalMode(null);
-    loadData();
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      if (modalMode === 'create') {
+        await testimonialService.create(formData);
+        setFeedback({ type: 'success', message: 'Testimoni alumni baru berhasil ditambahkan.' });
+      } else if (modalMode === 'edit' && selectedItem) {
+        await testimonialService.update(selectedItem.id, formData);
+        setFeedback({ type: 'success', message: 'Data testimoni alumni berhasil diperbarui.' });
+      }
+      setModalMode(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save testimonial:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menyimpan testimoni.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return;
+    setActionLoading(true);
+    setFeedback(null);
+    try {
       await testimonialService.delete(deleteTarget.id);
+      setFeedback({ type: 'success', message: 'Testimoni alumni berhasil dihapus.' });
       setDeleteTarget(null);
-      loadData();
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete testimonial:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menghapus testimoni.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -106,7 +150,7 @@ export default function AdminTestimonialsPage() {
       header: 'Kutipan',
       render: (row) => (
         <span style={{ fontSize: '0.85rem', color: '#475569', fontStyle: 'italic' }}>
-          "{row.quote.slice(0, 70)}..."
+          "{String(row?.quote || '').slice(0, 70)}..."
         </span>
       )
     },
@@ -118,6 +162,39 @@ export default function AdminTestimonialsPage() {
 
   return (
     <div>
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: feedback.type === 'success' ? '#16A34A' : '#EF4444',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{feedback.message}</span>
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}
@@ -142,11 +219,21 @@ export default function AdminTestimonialsPage() {
         title={modalMode === 'create' ? 'Tambah Cerita Alumni' : 'Edit Testimoni'}
         footer={
           <>
-            <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
+            <button
+              type="button"
+              onClick={() => setModalMode(null)}
+              className="btn btn-outline btn-sm"
+              disabled={actionLoading}
+            >
               Batal
             </button>
-            <button type="submit" form="testi-form" className="btn btn-primary btn-sm">
-              Simpan Testimoni
+            <button
+              type="submit"
+              form="testi-form"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Menyimpan...' : 'Simpan Testimoni'}
             </button>
           </>
         }
@@ -163,14 +250,17 @@ export default function AdminTestimonialsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <FormField
               label="Program yang Diikuti"
+              required
               value={formData.program}
               onChange={(e) => setFormData({ ...formData, program: e.target.value })}
             />
             <FormField
-              label="Tahun Angkatan"
+              label="Tahun Lulus / Angkatan"
+              required
               value={formData.year}
-              onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-              placeholder="Contoh: Alumni Angkatan 2025"
+              onChange={(e) => setFormData({ ...formData, year: e.target.value.slice(0, 10) })}
+              placeholder="Contoh: 2026"
+              maxLength={10}
             />
           </div>
 
@@ -189,6 +279,7 @@ export default function AdminTestimonialsPage() {
             required
             value={formData.quote}
             onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
+            placeholder="Ceritakan pengalaman belajar di LPK dan bekerja di Jepang..."
           />
 
           <FormField

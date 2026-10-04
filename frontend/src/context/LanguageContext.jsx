@@ -22,7 +22,7 @@ export const TRANSLATIONS = {
       opportunitiesFull: 'Peluang Karier',
       journey: 'Alur Belajar',
       facilities: 'Fasilitas Pelatihan',
-      facilitiesFull: 'Fasilitas Kampus',
+      facilitiesFull: 'Fasilitas Lembaga',
       stories: 'Cerita Alumni',
       storiesFull: 'Cerita & Testimoni Alumni',
       articles: 'Artikel & Edukasi',

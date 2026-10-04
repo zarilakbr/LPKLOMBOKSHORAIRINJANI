@@ -14,12 +14,12 @@ class AdminActivityLogController extends BaseApiController
     {
         $query = ActivityLog::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                  ->orWhere('user_name', 'like', "%{$search}%")
-                  ->orWhere('module', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(description) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(user_name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(module) LIKE ?', [$term]);
             });
         }
 

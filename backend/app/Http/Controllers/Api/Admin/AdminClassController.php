@@ -18,14 +18,15 @@ class AdminClassController extends BaseApiController
 
     public function index(Request $request): JsonResponse
     {
-        $query = ProgramClass::with('program');
+        $query = ProgramClass::with(['program', 'teacher']);
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('class_name', 'like', "%{$search}%")
-                  ->orWhere('instructor', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(class_name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(instructor) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(location) LIKE ?', [$term]);
             });
         }
 
@@ -44,18 +45,30 @@ class AdminClassController extends BaseApiController
 
     public function store(StoreClassRequest $request): JsonResponse
     {
-        $class = ProgramClass::create($request->validated());
+        $data = $request->validated();
+
+        if (!empty($data['teacher_id'])) {
+            $teacher = \App\Models\User::where('id', $data['teacher_id'])->where('role', \App\Models\User::ROLE_PENGAJAR)->first();
+            if ($teacher) {
+                $data['instructor'] = $teacher->name;
+            }
+        }
+
+        $class = ProgramClass::create($data);
+        $loadedClass = $class->load(['program', 'teacher']);
 
         $this->activityLogService->log(
             $request->user()?->id,
             $request->user()?->name,
             'CREATE',
             'Classes',
-            "Menambahkan kelas baru: {$class->class_name}."
+            "Menambahkan kelas baru: {$loadedClass->class_name}."
         );
 
+        event(new \App\Events\ClassCreated($loadedClass));
+
         return $this->sendResponse(
-            new ClassResource($class),
+            new ClassResource($loadedClass),
             'Kelas berhasil dibuat.',
             201
         );
@@ -63,7 +76,7 @@ class AdminClassController extends BaseApiController
 
     public function show(int $id): JsonResponse
     {
-        $class = ProgramClass::with('program')->find($id);
+        $class = ProgramClass::with(['program', 'teacher'])->find($id);
 
         if (!$class) {
             return $this->sendError('Kelas tidak ditemukan.', [], 404);
@@ -83,18 +96,42 @@ class AdminClassController extends BaseApiController
             return $this->sendError('Kelas tidak ditemukan.', [], 404);
         }
 
-        $class->update($request->validated());
+        $previousTeacherId = $class->teacher_id;
+        $data = $request->validated();
+
+        if (array_key_exists('teacher_id', $data) && !empty($data['teacher_id'])) {
+            $teacher = \App\Models\User::where('id', $data['teacher_id'])->where('role', \App\Models\User::ROLE_PENGAJAR)->first();
+            if ($teacher) {
+                $data['instructor'] = $teacher->name;
+            }
+        }
+
+        $class->update($data);
+        $freshClass = $class->fresh(['program', 'teacher']);
 
         $this->activityLogService->log(
             $request->user()?->id,
             $request->user()?->name,
             'UPDATE',
             'Classes',
-            "Memperbarui data kelas: {$class->class_name}."
+            "Memperbarui data kelas: {$freshClass->class_name}."
+        );
+
+        // Realtime Event Broadcast (Correct ClassUpdated event)
+        event(new \App\Events\ClassUpdated($freshClass, $previousTeacherId));
+
+        // Realtime Notification for Enrolled Students
+        $className = $freshClass->class_name ?? $freshClass->name;
+        \App\Services\RealtimeNotificationService::notifyClassStudents(
+            $freshClass->id,
+            'jadwal',
+            'Jadwal Kelas Diperbarui',
+            "Informasi jadwal/ruang kelas {$className} telah diperbarui oleh Admin.",
+            '/dashboard/schedule'
         );
 
         return $this->sendResponse(
-            new ClassResource($class),
+            new ClassResource($freshClass),
             'Data kelas berhasil diperbarui.'
         );
     }
@@ -107,7 +144,10 @@ class AdminClassController extends BaseApiController
             return $this->sendError('Kelas tidak ditemukan.', [], 404);
         }
 
-        $name = $class->class_name;
+        $name = $class->class_name ?? $class->name;
+        $classId = $class->id;
+        $teacherId = $class->teacher_id;
+
         $class->delete();
 
         $this->activityLogService->log(
@@ -117,6 +157,8 @@ class AdminClassController extends BaseApiController
             'Classes',
             "Menghapus kelas: {$name}."
         );
+
+        event(new \App\Events\ClassDeleted($classId, $teacherId, $name));
 
         return $this->sendResponse(null, 'Kelas berhasil dihapus.');
     }

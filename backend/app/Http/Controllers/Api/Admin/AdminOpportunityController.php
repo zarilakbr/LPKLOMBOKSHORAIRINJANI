@@ -21,12 +21,12 @@ class AdminOpportunityController extends BaseApiController
     {
         $query = Opportunity::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%")
-                  ->orWhere('sector', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(title) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(location) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(sector) LIKE ?', [$term]);
             });
         }
 

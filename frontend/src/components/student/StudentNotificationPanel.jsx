@@ -1,6 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X, Check, CalendarCheck, Calendar, FileText, FileCheck, Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent } from '../../context/RealtimeContext';
+
+const getNotificationIcon = (type) => {
+  switch (type) {
+    case 'pendaftaran':
+      return FileText;
+    case 'jadwal':
+      return Calendar;
+    case 'absensi':
+      return CalendarCheck;
+    case 'izin':
+      return FileCheck;
+    case 'pengumuman':
+    default:
+      return Megaphone;
+  }
+};
 
 const initialStudentNotifications = [
   { id: 1, type: 'pendaftaran', icon: FileText, title: 'Status Berkas Pendaftaran', message: 'Dokumen pendaftaran program Anda sedang dalam verifikasi konselor.', isRead: false, createdAt: '15 menit yang lalu', link: '/dashboard/registrations' },
@@ -13,9 +31,53 @@ const initialStudentNotifications = [
 export default function StudentNotificationPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState(initialStudentNotifications);
+  const [unreadCount, setUnreadCount] = useState(0);
   const panelRef = useRef(null);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // Fetch real notifications from database API
+  const fetchNotifications = async () => {
+    try {
+      const res = await apiClient.get('/student/notifications');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const formatted = res.data.data.map((item) => ({
+          id: item.id,
+          type: item.type,
+          icon: getNotificationIcon(item.type),
+          title: item.title,
+          message: item.message,
+          isRead: item.isRead || item.is_read,
+          createdAt: item.createdAtFormatted || 'Baru saja',
+          link: item.actionUrl || item.action_url || '/dashboard'
+        }));
+        setNotifications(formatted);
+        setUnreadCount(typeof res.data.unreadCount === 'number' ? res.data.unreadCount : formatted.filter(n => !n.isRead).length);
+      }
+    } catch (err) {
+      // Fallback silently to initial mock
+      setUnreadCount(initialStudentNotifications.filter(n => !n.isRead).length);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Listen for LIVE notification.created realtime event
+  useRealtimeEvent('notification.created', (newNotif) => {
+    const formatted = {
+      id: newNotif.id || Date.now(),
+      type: newNotif.type || 'pengumuman',
+      icon: getNotificationIcon(newNotif.type),
+      title: newNotif.title || 'Pemberitahuan Baru',
+      message: newNotif.message || '',
+      isRead: false,
+      createdAt: 'Baru saja',
+      link: newNotif.action_url || newNotif.actionUrl || '/dashboard'
+    };
+
+    setNotifications((prev) => [formatted, ...prev.filter(n => n.id !== formatted.id)]);
+    setUnreadCount((prev) => prev + 1);
+  });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,11 +90,19 @@ export default function StudentNotificationPanel() {
   }, []);
 
   const handleMarkAsRead = (id) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    apiClient.post(`/student/notifications/${id}/read`).catch(() => {});
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+
+    apiClient.post('/student/notifications/read-all').catch(() => {});
   };
 
   const handleNotificationClick = (id) => {

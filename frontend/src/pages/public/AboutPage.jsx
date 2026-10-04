@@ -7,29 +7,7 @@ import Badge from '../../components/common/Badge';
 import { BRAND } from '../../config/brand';
 
 export default function AboutPage() {
-  const senseiTeam = [
-    {
-      name: "Yamada Kenji Sensei",
-      role: "Direktur Akademik & Penutur Asli (Native Instructor)",
-      origin: "Yokohama, Jepang",
-      experience: "14 Tahun Pengajaran Bahasa Asing & Pelatihan Lintas Budaya",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
-    },
-    {
-      name: "Rina Puspita, S.Hum.",
-      role: "Kepala Kurikulum & Spesialis JLPT N1",
-      origin: "Alumni Sastra Jepang & Mantan Penerjemah Korporasi Tokyo",
-      experience: "9 Tahun Pengajar Utama JLPT & Persiapan JFT-Basic",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80"
-    },
-    {
-      name: "Budi Santoso, S.T.",
-      role: "Instruktur Teknis Tokutei Ginou & Pembina Mentalitas 5S",
-      origin: "Mantan Praktisi Manufaktur di Prefektur Aichi Selama 5 Tahun",
-      experience: "8 Tahun Bimbingan Teknis & Wawancara Perusahaan Jepang",
-      image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80"
-    }
-  ];
+
 
   const values = [
     {
@@ -182,30 +160,18 @@ export default function AboutPage() {
             subtitle="Para sensei kami mengombinasikan ketepatan tata bahasa murni dengan pengalaman riil industri korporasi Jepang."
           />
 
-          <div className="grid-3">
-            {senseiTeam.map((sens, idx) => (
-              <div key={idx} className="card-editorial" style={{ padding: 0, overflow: 'hidden' }}>
-                <img
-                  src={sens.image}
-                  alt={sens.name}
-                  style={{ width: '100%', height: '240px', objectFit: 'cover' }}
-                />
-                <div style={{ padding: '1.75rem' }}>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>
-                    {sens.name}
-                  </h3>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--vermilion)', marginBottom: '0.75rem' }}>
-                    {sens.role}
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                    {sens.origin}
-                  </div>
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                    {sens.experience}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="card-editorial" style={{ textAlign: 'center', padding: '3.5rem 2rem', backgroundColor: 'var(--bg-surface)' }}>
+            <GraduationCap size={48} color="var(--vermilion)" style={{ margin: '0 auto 1.25rem auto' }} />
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
+              Standar Kualifikasi Pengajar
+            </h3>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '640px', margin: '0 auto 1.5rem auto', lineHeight: 1.7 }}>
+              Seluruh sensei dan instruktur di {BRAND.name} melalui seleksi ketat dengan sertifikasi resmi JLPT (N1/N2) serta pengalaman langsung tinggal dan bekerja di Jepang. Informasi profil instruktur per angkatan akan diperbarui menjelang pembukaan kelas.
+            </p>
+            <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <CheckCircle2 size={16} color="var(--emerald)" />
+              <span>Profil resmi instruktur akan diperbarui sesuai penugasan kelas berjalan.</span>
+            </div>
           </div>
         </div>
       </section>

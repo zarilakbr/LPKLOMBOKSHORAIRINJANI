@@ -55,8 +55,25 @@ class AuthController extends BaseApiController
             return $this->sendError('Kredensial yang dimasukkan tidak cocok dengan data kami.', [], 401);
         }
 
+        if ($user->status === User::STATUS_PENDING || $user->status === User::STATUS_PENDING_VERIFICATION) {
+            return $this->sendError(
+                'Akun Anda sedang menunggu verifikasi dan persetujuan Administrator. Silakan tunggu hingga akun Anda disetujui untuk dapat mengakses sistem.',
+                ['status' => User::STATUS_PENDING],
+                403
+            );
+        }
+
+        if ($user->status === User::STATUS_REJECTED) {
+            $reasonMsg = $user->rejection_reason ? " Alasan penolakan: {$user->rejection_reason}" : '';
+            return $this->sendError(
+                'Pendaftaran akun Anda ditolak oleh Administrator.' . $reasonMsg,
+                ['status' => User::STATUS_REJECTED, 'rejection_reason' => $user->rejection_reason],
+                403
+            );
+        }
+
         if ($user->status !== User::STATUS_ACTIVE) {
-            return $this->sendError('Akun Anda dinonaktifkan. Silakan hubungi pengelola lembaga.', [], 403);
+            return $this->sendError('Akun Anda dinonaktifkan atau ditangguhkan. Silakan hubungi pengelola lembaga.', ['status' => $user->status], 403);
         }
 
         $user->tokens()->delete(); // Clear older tokens
@@ -88,7 +105,7 @@ class AuthController extends BaseApiController
     }
 
     /**
-     * Register a new student user account with Turnstile human verification.
+     * Register a new user account (SISWA or PENGAJAR) with Admin approval required.
      */
     public function register(Request $request): JsonResponse
     {
@@ -101,12 +118,13 @@ class AuthController extends BaseApiController
             }
         }
 
-        // 2. Validate Registration Input
+        // 2. Validate Registration Input (Whitelist strictly SISWA and PENGAJAR, ADMIN is forbidden)
         $validator = Validator::make($request->all(), [
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
             'phone'    => ['nullable', 'string', 'max:25'],
+            'role'     => ['sometimes', 'string', 'in:SISWA,PENGAJAR'],
         ], [
             'name.required'     => 'Nama lengkap wajib diisi.',
             'email.required'    => 'Alamat email wajib diisi.',
@@ -114,40 +132,46 @@ class AuthController extends BaseApiController
             'email.unique'      => 'Alamat email sudah terdaftar. Silakan masuk menggunakan akun Anda.',
             'password.required' => 'Kata sandi wajib diisi.',
             'password.min'      => 'Kata sandi minimal 6 karakter.',
+            'role.in'           => 'Peran (role) yang dipilih tidak diizinkan untuk registrasi publik. Hanya SISWA dan PENGAJAR yang diizinkan.',
         ]);
 
         if ($validator->fails()) {
             return $this->sendError('Validasi gagal.', $validator->errors(), 422);
         }
 
-        // 3. Create User with default SISWA role (Authority in backend)
-        $user = User::create([
-            'name'          => trim($request->name),
-            'email'         => strtolower(trim($request->email)),
-            'phone'         => $request->phone ? trim($request->phone) : null,
-            'password'      => Hash::make($request->password),
-            'role'          => User::ROLE_SISWA, // Exactly 3 roles, registration is always SISWA
-            'status'        => User::STATUS_ACTIVE,
-            'department'    => 'Calon Siswa',
-            'last_login_at' => now(),
-        ]);
+        $chosenRole = strtoupper(trim($request->input('role', User::ROLE_SISWA)));
+        if (!in_array($chosenRole, [User::ROLE_SISWA, User::ROLE_PENGAJAR], true)) {
+            return $this->sendError('Peran yang dipilih tidak diizinkan. Hanya SISWA dan PENGAJAR yang dapat mendaftar.', [
+                'role' => ['Peran tidak diizinkan untuk pendaftaran publik.']
+            ], 422);
+        }
 
-        $token = $user->createToken('auth-api-token')->plainTextToken;
+        // 3. Create User with PENDING status awaiting Admin approval
+        $user = User::create([
+            'name'             => trim($request->name),
+            'email'            => strtolower(trim($request->email)),
+            'phone'            => $request->phone ? trim($request->phone) : null,
+            'password'         => Hash::make($request->password),
+            'role'             => $chosenRole,
+            'status'           => User::STATUS_PENDING,
+            'department'       => $chosenRole === User::ROLE_PENGAJAR ? 'Calon Pengajar' : 'Calon Siswa',
+            'last_login_at'    => null,
+        ]);
 
         $this->activityLogService->log(
             $user->id,
             $user->name,
             'REGISTER',
             'Authentication',
-            "Pendaftaran akun siswa baru {$user->email} berhasil."
+            "Pendaftaran akun baru {$user->email} ({$user->role}) berhasil diserahkan dan menunggu persetujuan Administrator."
         );
 
         return $this->sendResponse([
-            'token'       => $token,
-            'user'        => new UserResource($user),
-            'role'        => $user->role,
-            'redirectUrl' => '/dashboard',
-        ], 'Pendaftaran akun berhasil.', 201);
+            'user'             => new UserResource($user),
+            'role'             => $user->role,
+            'status'           => User::STATUS_PENDING,
+            'requiresApproval' => true,
+        ], 'Pendaftaran akun berhasil. Akun Anda sedang menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan untuk masuk.', 201);
     }
 
     /**
@@ -242,6 +266,22 @@ class AuthController extends BaseApiController
                 return $this->sendError('Verifikasi identitas akun Google gagal dari server.', [], 401);
             }
 
+            // Security Hardening: Validate audience (aud) matches configured client_id
+            if (isset($googleUser['aud']) && $googleUser['aud'] !== $clientId) {
+                return $this->sendError('Identitas token Google tidak cocok dengan Client ID aplikasi.', [], 401);
+            }
+
+            // Security Hardening: Validate issuer (iss)
+            if (isset($googleUser['iss']) && !in_array($googleUser['iss'], ['accounts.google.com', 'https://accounts.google.com'], true)) {
+                return $this->sendError('Penerbit token Google tidak valid.', [], 401);
+            }
+
+            // Security Hardening: Validate email_verified is true
+            $isEmailVerified = filter_var($googleUser['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (!$isEmailVerified) {
+                return $this->sendError('Alamat email Google belum diverifikasi oleh Google.', [], 401);
+            }
+
             $email = strtolower(trim($googleUser['email']));
             $name = $googleUser['name'] ?? explode('@', $email)[0];
             $avatar = $googleUser['picture'] ?? null;
@@ -250,18 +290,48 @@ class AuthController extends BaseApiController
             $user = User::where('email', $email)->first();
 
             if (!$user) {
+                // New user registered via Google OAuth is ALWAYS SISWA with PENDING status
                 $user = User::create([
                     'name'          => $name,
                     'email'         => $email,
                     'avatar'        => $avatar,
                     'password'      => Hash::make(bin2hex(random_bytes(16))),
                     'role'          => User::ROLE_SISWA,
-                    'status'        => User::STATUS_ACTIVE,
-                    'last_login_at' => now(),
+                    'status'        => User::STATUS_PENDING,
+                    'department'    => 'Calon Siswa',
+                    'last_login_at' => null,
                 ]);
+
+                $this->activityLogService->log(
+                    $user->id,
+                    $user->name,
+                    'GOOGLE_REGISTER',
+                    'Authentication',
+                    "Pendaftaran akun siswa baru {$user->email} via Google OAuth menunggu persetujuan Administrator."
+                );
+
+                return $this->sendError(
+                    'Pendaftaran akun via Google OAuth berhasil. Akun Anda sedang menunggu verifikasi dan persetujuan Administrator sebelum dapat masuk.',
+                    ['status' => User::STATUS_PENDING, 'requiresApproval' => true],
+                    403
+                );
             } else {
+                // Disallow automatic takeover/linking of ADMIN and PENGAJAR accounts
+                if (in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PENGAJAR], true)) {
+                    return $this->sendError('Akun staf/pengajar/admin tidak diizinkan masuk melalui Google OAuth otomatis demi alasan keamanan. Silakan gunakan autentikasi email dan kata sandi resmi.', [], 403);
+                }
+
+                if ($user->status === User::STATUS_PENDING || $user->status === User::STATUS_PENDING_VERIFICATION) {
+                    return $this->sendError('Akun Anda sedang menunggu verifikasi dan persetujuan Administrator.', ['status' => User::STATUS_PENDING], 403);
+                }
+
+                if ($user->status === User::STATUS_REJECTED) {
+                    $reasonMsg = $user->rejection_reason ? " Alasan penolakan: {$user->rejection_reason}" : '';
+                    return $this->sendError('Pendaftaran akun Anda ditolak oleh Administrator.' . $reasonMsg, ['status' => User::STATUS_REJECTED], 403);
+                }
+
                 if ($user->status !== User::STATUS_ACTIVE) {
-                    return $this->sendError('Akun Anda dinonaktifkan. Silakan hubungi pengelola lembaga.', [], 403);
+                    return $this->sendError('Akun Anda dinonaktifkan atau ditangguhkan. Silakan hubungi pengelola lembaga.', ['status' => $user->status], 403);
                 }
                 $user->update(['last_login_at' => now()]);
             }

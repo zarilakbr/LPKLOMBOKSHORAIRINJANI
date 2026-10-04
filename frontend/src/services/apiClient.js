@@ -50,14 +50,15 @@ export const apiAuth = {
   },
 
   /**
-   * Register new student user via Laravel backend with Turnstile verification.
+   * Register new user (SISWA or PENGAJAR) via Laravel backend with Turnstile verification.
    */
-  async register({ name, email, password, phone = '', turnstileToken = null }) {
+  async register({ name, email, password, phone = '', role = 'SISWA', turnstileToken = null }) {
     const payload = {
       name,
       email,
       password,
-      phone
+      phone,
+      role
     };
     if (turnstileToken) {
       payload.turnstile_token = turnstileToken;

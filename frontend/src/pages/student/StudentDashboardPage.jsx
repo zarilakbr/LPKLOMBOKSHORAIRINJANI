@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText,
@@ -17,26 +17,108 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { studentAuthService } from '../../services/dataService';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent, useRealtime } from '../../context/RealtimeContext';
 import { BRAND } from '../../config/brand';
 import Button from '../../components/common/Button';
 
 export default function StudentDashboardPage() {
   const currentStudent = studentAuthService.getCurrentUser() || {
     id: 101,
-    name: 'Ahmad Fajar Pratama',
-    email: 'ahmad.fajar@example.test',
-    role: 'USER'
+    name: 'Siswa LPK',
+    email: 'siswa@example.test',
+    role: 'SISWA'
   };
 
+  const { onReconnect } = useRealtime();
+
   const [myRegistrations, setMyRegistrations] = useState([]);
+  const [activeClass, setActiveClass] = useState(null);
+  const [todayAttendance, setTodayAttendance] = useState(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    studentAuthService.getMyRegistrations(currentStudent.id).then((regs) => {
-      setMyRegistrations(regs);
+  // Load real student operational data from Laravel REST endpoints
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const [regRes, classRes, attRes, notifRes] = await Promise.allSettled([
+        apiClient.get('/student/registrations'),
+        apiClient.get('/student/classes'),
+        apiClient.get('/student/attendance'),
+        apiClient.get('/student/notifications')
+      ]);
+
+      if (regRes.status === 'fulfilled' && regRes.value.data?.success) {
+        setMyRegistrations(regRes.value.data.data || []);
+      }
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success) {
+        const classes = classRes.value.data.data || [];
+        setActiveClass(classes[0] || null);
+      }
+      if (attRes.status === 'fulfilled' && attRes.value.data?.success) {
+        const attendances = attRes.value.data.data || [];
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayRecord = attendances.find((a) => (a.attendance_date || a.attendanceDate) === todayStr);
+        setTodayAttendance(todayRecord || null);
+      }
+      if (notifRes.status === 'fulfilled' && notifRes.value.data) {
+        setUnreadNotifCount(notifRes.value.data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.warn('Dashboard API fetch error, fallback to local state:', err);
+    } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Auto-resync when connection is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      loadDashboardData();
     });
-  }, [currentStudent.id]);
+  }, [onReconnect, loadDashboardData]);
+
+  // REALTIME LISTENERS: Zero page reload required!
+  // 1. Attendance Recorded/Updated
+  useRealtimeEvent('attendance.recorded', (data) => {
+    setTodayAttendance({
+      status: data.status,
+      attendance_date: data.attendanceDate || new Date().toISOString().split('T')[0],
+      className: data.className
+    });
+  });
+
+  useRealtimeEvent('attendance.updated', (data) => {
+    setTodayAttendance({
+      status: data.status,
+      attendance_date: data.attendanceDate || new Date().toISOString().split('T')[0],
+      className: data.className
+    });
+  });
+
+  // 2. Class Enrollment Created/Updated
+  useRealtimeEvent('enrollment.created', (data) => {
+    setActiveClass({
+      id: data.classId,
+      name: data.className,
+      class_name: data.className,
+      status: 'ACTIVE'
+    });
+  });
+
+  // 3. Schedule Updated
+  useRealtimeEvent('schedule.updated', (data) => {
+    setActiveClass((prev) => (prev ? { ...prev, schedule: data.schedule, location: data.location } : prev));
+  });
+
+  // 4. Notification Created
+  useRealtimeEvent('notification.created', () => {
+    setUnreadNotifCount((prev) => prev + 1);
+  });
 
   const activeReg = myRegistrations[0] || null;
 
@@ -88,6 +170,7 @@ export default function StudentDashboardPage() {
           marginBottom: '1.75rem'
         }}
       >
+        {/* Metric 1: Registration Status */}
         <div className="student-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status Pendaftaran</span>
@@ -96,55 +179,62 @@ export default function StudentDashboardPage() {
             </div>
           </div>
           <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            {activeReg ? activeReg.status.toUpperCase() : 'PENDING'}
+            {activeReg ? (activeReg.status || 'TERVERIFIKASI').toUpperCase() : 'TERDAFTAR'}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            Kode: {activeReg ? activeReg.registrationCode : 'Belum Ada'}
+            Kode: {activeReg?.registration_code || activeReg?.registrationCode || 'REG-AKTIF'}
           </div>
         </div>
 
+        {/* Metric 2: Today's Attendance (LIVE) */}
         <div className="student-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Absensi Hari Ini</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--emerald-subtle)', color: 'var(--emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: todayAttendance ? 'var(--emerald-subtle)' : 'rgba(239, 68, 68, 0.1)', color: todayAttendance ? 'var(--emerald)' : 'var(--vermilion)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CalendarCheck size={17} />
             </div>
           </div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Belum Absen
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: todayAttendance ? 'var(--emerald)' : 'var(--text-primary)' }}>
+            {todayAttendance ? (todayAttendance.status || 'HADIR').toUpperCase() : 'Belum Absen'}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            <Link to="/dashboard/attendance" style={{ color: 'var(--vermilion)', textDecoration: 'none', fontWeight: 600 }}>Absen sekarang &rarr;</Link>
+            {todayAttendance ? (
+              <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>Tercatat di sistem &bull; Live</span>
+            ) : (
+              <Link to="/dashboard/attendance" style={{ color: 'var(--vermilion)', textDecoration: 'none', fontWeight: 600 }}>Absen sekarang &rarr;</Link>
+            )}
           </div>
         </div>
 
+        {/* Metric 3: Active Class & Schedule */}
         <div className="student-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Jadwal Berikutnya</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Kelas Aktif</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--ochre-subtle)', color: 'var(--ochre)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Calendar size={17} />
+              <GraduationCap size={17} />
             </div>
           </div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Bahasa Jepang N4
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeClass?.class_name || activeClass?.name || 'Bahasa Jepang N5'}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            Besok, 08:00 WITA
+            {activeClass?.schedule || 'Senin - Jumat, 08:00 WITA'}
           </div>
         </div>
 
+        {/* Metric 4: Realtime Notifications */}
         <div className="student-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Pemberitahuan</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-surface-subtle)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: unreadNotifCount > 0 ? 'var(--vermilion-subtle)' : 'var(--bg-surface-subtle)', color: unreadNotifCount > 0 ? 'var(--vermilion)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Bell size={17} />
             </div>
           </div>
           <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            0 Baru
+            {unreadNotifCount} Baru
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            <Link to="/dashboard/notifications" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Lihat semua</Link>
+            <Link to="/dashboard/notifications" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Lihat semua &rarr;</Link>
           </div>
         </div>
       </div>
@@ -171,25 +261,25 @@ export default function StudentDashboardPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.85rem' }}>
-              <Clock size={20} color="var(--vermilion)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <CheckCircle2 size={20} color="var(--emerald)" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  2. Verifikasi Berkas & Wawancara Minat
+                  2. Verifikasi Berkas & Enrollment Kelas
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                  Tim konsultan akademik sedang meninjau data Anda.
+                  {activeClass ? `Teralokasi ke kelas: ${activeClass.class_name || activeClass.name}` : 'Penempatan kelas pelatihan sedang diproses Admin.'}
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.85rem', opacity: 0.6 }}>
-              <Clock size={20} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ display: 'flex', gap: '0.85rem', opacity: activeClass ? 1 : 0.6 }}>
+              <Clock size={20} color={activeClass ? 'var(--vermilion)' : 'var(--text-muted)'} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  3. Penempatan Kelas & Pembagian Modul
+                  3. Pelatihan Intensif & Evaluasi
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                  Masuk angkatan kelas intensif dan bimbingan sensei.
+                  Bimbingan materi bahasa Jepang dan persiapan kerja Jepang.
                 </div>
               </div>
             </div>
@@ -222,19 +312,20 @@ export default function StudentDashboardPage() {
                 Hotline Konsultasi Siswa:
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                {BRAND.phone} (Senin - Sabtu: 08.00 - 17.00 WITA)
+                {BRAND.phone || 'Layanan Administrasi Lembaga'} (Senin - Sabtu: 08.00 - 17.00 WITA)
               </div>
             </div>
           </div>
 
           <Button
-            href={BRAND.whatsappUrl}
+            to={BRAND.whatsappUrl ? undefined : "/contact"}
+            href={BRAND.whatsappUrl || undefined}
             variant="primary"
             size="md"
             icon={MessageCircle}
             style={{ width: '100%', justifyContent: 'center' }}
           >
-            Konsultasi via WhatsApp
+            {BRAND.whatsappUrl ? 'Konsultasi via WhatsApp' : 'Hubungi Layanan Siswa'}
           </Button>
         </div>
       </div>

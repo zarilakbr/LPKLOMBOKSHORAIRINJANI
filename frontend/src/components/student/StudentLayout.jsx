@@ -14,11 +14,13 @@ import {
   CalendarCheck,
   FileCheck,
   Bell,
-  Globe
+  Globe,
+  BookMarked
 } from 'lucide-react';
 import { studentAuthService } from '../../services/dataService';
 import { BRAND } from '../../config/brand';
 import StudentNotificationPanel from './StudentNotificationPanel';
+import RealtimeStatusBadge from '../common/RealtimeStatusBadge';
 import DashboardFooter from '../common/DashboardFooter';
 import { useLanguage, LANGUAGES } from '../../context/LanguageContext';
 import '../../styles/student.css';
@@ -63,6 +65,7 @@ export default function StudentLayout() {
     { label: 'Profil Saya', to: '/dashboard/profile', icon: User },
     { label: 'Pendaftaran Saya', to: '/dashboard/registrations', icon: FileText },
     { label: 'Program Saya', to: '/dashboard/programs', icon: BookOpen },
+    { label: 'Materi Belajar', to: '/dashboard/materials', icon: BookMarked },
     { label: 'Jadwal', to: '/dashboard/schedule', icon: Calendar },
     { label: 'Absensi', to: '/dashboard/attendance', icon: CalendarCheck },
     { label: 'Izin', to: '/dashboard/permission', icon: FileCheck },
@@ -313,6 +316,7 @@ export default function StudentLayout() {
 
           {/* Right: Notification & Website Link */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <RealtimeStatusBadge />
             <StudentNotificationPanel />
 
             <Link

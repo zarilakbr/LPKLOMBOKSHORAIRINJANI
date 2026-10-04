@@ -64,6 +64,7 @@ export default function StudentLoginPage() {
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regRole, setRegRole] = useState('SISWA');
 
   // Human Verification (Cloudflare Turnstile)
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -158,13 +159,19 @@ export default function StudentLoginPage() {
         email: regEmail,
         phone: regPhone,
         password: regPassword,
+        role: regRole,
         turnstileToken
       });
 
-      setNotice('Pendaftaran berhasil! Mengalihkan ke dashboard siswa...');
-      setTimeout(() => {
-        navigate(result.redirectUrl || '/dashboard');
-      }, 1200);
+      setNotice(
+        result.message ||
+        `Pendaftaran ${regRole === 'PENGAJAR' ? 'Pengajar (Sensei)' : 'Siswa'} berhasil diserahkan! Akun Anda sedang menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan untuk masuk.`
+      );
+      setRegFullName('');
+      setRegEmail('');
+      setRegPhone('');
+      setRegPassword('');
+      setRegConfirmPassword('');
     } catch (err) {
       setError(err.message || 'Pendaftaran gagal. Silakan coba lagi.');
     } finally {
@@ -649,6 +656,74 @@ export default function StudentLoginPage() {
         {/* ========================================================= */}
         {authMode === 'REGISTER' && (
           <form onSubmit={handleRegisterSubmit} style={{ padding: '1rem clamp(1rem, 4vw, 1.75rem) 1.75rem clamp(1rem, 4vw, 1.75rem)' }}>
+            {/* Role selector for registration: SISWA vs PENGAJAR only */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
+                Mendaftar sebagai:
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '0.5rem',
+                  backgroundColor: 'var(--bg-surface-subtle)',
+                  padding: '0.3rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setRegRole('SISWA')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 0.5rem',
+                    borderRadius: 'calc(var(--radius-sm) - 2px)',
+                    fontSize: '0.85rem',
+                    fontWeight: regRole === 'SISWA' ? 700 : 500,
+                    color: regRole === 'SISWA' ? 'var(--vermilion)' : 'var(--text-secondary)',
+                    backgroundColor: regRole === 'SISWA' ? 'var(--bg-surface)' : 'transparent',
+                    boxShadow: regRole === 'SISWA' ? '0 1px 3px rgba(0, 0, 0, 0.08)' : 'none',
+                    border: regRole === 'SISWA' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <GraduationCap size={16} />
+                  <span>Siswa (Peserta)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegRole('PENGAJAR')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 0.5rem',
+                    borderRadius: 'calc(var(--radius-sm) - 2px)',
+                    fontSize: '0.85rem',
+                    fontWeight: regRole === 'PENGAJAR' ? 700 : 500,
+                    color: regRole === 'PENGAJAR' ? 'var(--vermilion)' : 'var(--text-secondary)',
+                    backgroundColor: regRole === 'PENGAJAR' ? 'var(--bg-surface)' : 'transparent',
+                    boxShadow: regRole === 'PENGAJAR' ? '0 1px 3px rgba(0, 0, 0, 0.08)' : 'none',
+                    border: regRole === 'PENGAJAR' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Presentation size={16} />
+                  <span>Pengajar (Sensei)</span>
+                </button>
+              </div>
+              <div style={{ marginTop: '0.45rem', fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {regRole === 'PENGAJAR'
+                  ? 'Pendaftaran sebagai Tenaga Instruktur / Sensei. Akun memerlukan verifikasi & persetujuan Admin sebelum dapat masuk ke Teacher Dashboard.'
+                  : 'Pendaftaran sebagai Calon Siswa Pelatihan Kerja ke Jepang. Akun memerlukan verifikasi & persetujuan Admin sebelum dapat masuk ke Student Dashboard.'}
+              </div>
+            </div>
+
             <div style={{ marginBottom: '1rem' }}>
               <label
                 htmlFor="reg-name"
@@ -761,7 +836,7 @@ export default function StudentLoginPage() {
                   required
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="08123456789"
+                  placeholder="08xxxxxxxxxx"
                   style={{
                     width: '100%',
                     padding: '0.7rem 1rem 0.7rem 2.3rem',
@@ -895,7 +970,7 @@ export default function StudentLoginPage() {
               disabled={loading}
               style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
             >
-              {loading ? 'Memproses Pendaftaran...' : 'Daftar Akun Sekarang'}
+              {loading ? 'Memproses Pendaftaran...' : (regRole === 'PENGAJAR' ? 'Daftar sebagai Pengajar' : 'Daftar sebagai Siswa')}
             </Button>
 
             {/* Google OAuth Option */}

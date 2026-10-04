@@ -15,7 +15,7 @@ class GalleryController extends BaseApiController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Gallery::query()->where('status', 'ACTIVE')->orderBy('order', 'asc');
+        $query = Gallery::query()->where('status', 'ACTIVE')->orderBy('sort_order', 'asc');
 
         if ($request->has('category') && $request->category !== 'ALL') {
             $query->where('category', $request->category);

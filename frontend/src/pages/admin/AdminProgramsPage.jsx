@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -26,18 +27,35 @@ export default function AdminProgramsPage() {
     status: 'ACTIVE'
   });
 
-  const loadData = () => {
-    programService.getAll().then((data) => setPrograms(data));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await programService.getAll();
+      setPrograms(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load programs:', err);
+      setError('Gagal memuat data program pelatihan.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = programs.filter((p) => {
-    const matchSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase());
-    const matchLevel = filterLevel === 'ALL' || p.level.includes(filterLevel);
+  const filtered = (programs || []).filter((p) => {
+    const title = String(p?.title ?? '').toLowerCase();
+    const category = String(p?.category ?? '').toLowerCase();
+    const level = String(p?.level ?? '');
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    const matchSearch = title.includes(searchTerm) || category.includes(searchTerm);
+    const matchLevel = filterLevel === 'ALL' || level.includes(filterLevel);
     return matchSearch && matchLevel;
   });
 
@@ -118,6 +136,22 @@ export default function AdminProgramsPage() {
 
   return (
     <div>
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}

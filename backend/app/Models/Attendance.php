@@ -15,6 +15,13 @@ class Attendance extends Model
     public const STATUS_SAKIT = 'sakit';
     public const STATUS_ALPA = 'alpa';
 
+    // Aliases
+    public const STATUS_PRESENT = self::STATUS_HADIR;
+    public const STATUS_LATE = self::STATUS_TERLAMBAT;
+    public const STATUS_EXCUSED = self::STATUS_IZIN;
+    public const STATUS_SICK = self::STATUS_SAKIT;
+    public const STATUS_ABSENT = self::STATUS_ALPA;
+
     protected $table = 'attendances';
 
     protected $fillable = [
@@ -30,6 +37,14 @@ class Attendance extends Model
         'attendance_date' => 'date',
         'check_in_at' => 'datetime',
     ];
+
+    /**
+     * Ensure status is always normalized to lowercase.
+     */
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = $value ? strtolower($value) : self::STATUS_HADIR;
+    }
 
     /**
      * The student who this attendance belongs to.

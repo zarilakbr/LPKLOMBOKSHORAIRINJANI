@@ -15,7 +15,8 @@ class GalleryResource extends JsonResource
             'category'    => $this->category,
             'image'       => $this->image,
             'description' => $this->description,
-            'order'       => $this->order,
+            'order'       => $this->sort_order ?? 0,
+            'sort_order'  => $this->sort_order ?? 0,
             'status'      => $this->status,
         ];
     }

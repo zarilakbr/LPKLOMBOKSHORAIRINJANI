@@ -11,10 +11,16 @@ class ClassResource extends JsonResource
     {
         return [
             'id'              => $this->id,
-            'className'       => $this->class_name,
+            'className'       => $this->class_name ?? $this->name,
             'programId'       => $this->program_id,
             'programTitle'    => $this->program?->title ?? 'Program Umum',
-            'instructor'      => $this->instructor,
+            'teacherId'       => $this->teacher_id,
+            'teacher'         => $this->teacher ? [
+                'id'    => $this->teacher->id,
+                'name'  => $this->teacher->name,
+                'email' => $this->teacher->email,
+            ] : null,
+            'instructor'      => $this->teacher?->name ?? $this->instructor,
             'level'           => $this->level,
             'schedule'        => $this->schedule,
             'startDate'       => $this->start_date?->format('Y-m-d'),
@@ -23,6 +29,7 @@ class ClassResource extends JsonResource
             'currentStudents' => $this->current_students,
             'location'        => $this->location,
             'status'          => $this->status,
+            'description'     => $this->description,
         ];
     }
 }

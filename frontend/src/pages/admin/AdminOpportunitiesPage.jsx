@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -13,6 +14,10 @@ export default function AdminOpportunitiesPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -21,22 +26,35 @@ export default function AdminOpportunitiesPage() {
     salaryRange: '¥190.000 - ¥245.000 / Bulan',
     languageReq: 'JLPT N4 atau JFT-Basic A2',
     ageReq: '19 - 35 Tahun',
-    description: '',
+    description: 'Peluang karier dan penempatan kerja di Jepang dengan fasilitas tempat tinggal, asuransi, dan pelatihan bahasa intensif.',
     status: 'OPEN'
   });
 
-  const loadData = () => {
-    opportunityService.getAll().then((data) => setOpportunities(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await opportunityService.getAll();
+      setOpportunities(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load opportunities:', err);
+      setError('Gagal memuat data peluang kerja.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = opportunities.filter((o) => {
-    const matchSearch = o.title.toLowerCase().includes(search.toLowerCase()) ||
-      o.location.toLowerCase().includes(search.toLowerCase());
-    const matchSector = filterSector === 'ALL' || o.sector === filterSector;
+  const filtered = (opportunities || []).filter((o) => {
+    const title = String(o?.title ?? '').toLowerCase();
+    const location = String(o?.location ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    const matchSearch = title.includes(searchTerm) || location.includes(searchTerm);
+    const matchSector = filterSector === 'ALL' || o?.sector === filterSector;
     return matchSearch && matchSector;
   });
 
@@ -48,7 +66,7 @@ export default function AdminOpportunitiesPage() {
       salaryRange: '¥190.000 - ¥240.000 / Bulan',
       languageReq: 'JLPT N4 / JFT-Basic A2',
       ageReq: '19 - 35 Tahun',
-      description: '',
+      description: 'Peluang kerja di Jepang untuk posisi terkait. Fasilitas lengkap asuransi, akomodasi, dan bimbingan dokumen berkala.',
       status: 'OPEN'
     });
     setSelectedItem(null);
@@ -72,20 +90,46 @@ export default function AdminOpportunitiesPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (modalMode === 'create') {
-      await opportunityService.create(formData);
-    } else if (modalMode === 'edit' && selectedItem) {
-      await opportunityService.update(selectedItem.id, formData);
+    if (!formData.description?.trim()) {
+      setFeedback({ type: 'error', message: 'Deskripsi lowongan kerja wajib diisi.' });
+      return;
     }
-    setModalMode(null);
-    loadData();
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      if (modalMode === 'create') {
+        await opportunityService.create(formData);
+        setFeedback({ type: 'success', message: 'Peluang kerja baru berhasil ditambahkan.' });
+      } else if (modalMode === 'edit' && selectedItem) {
+        await opportunityService.update(selectedItem.id, formData);
+        setFeedback({ type: 'success', message: 'Data peluang kerja berhasil diperbarui.' });
+      }
+      setModalMode(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save opportunity:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menyimpan peluang kerja.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return;
+    setActionLoading(true);
+    setFeedback(null);
+    try {
       await opportunityService.delete(deleteTarget.id);
+      setFeedback({ type: 'success', message: 'Peluang kerja berhasil dihapus.' });
       setDeleteTarget(null);
-      loadData();
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete opportunity:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Gagal menghapus peluang kerja.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -110,6 +154,39 @@ export default function AdminOpportunitiesPage() {
 
   return (
     <div>
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: feedback.type === 'success' ? '#16A34A' : '#EF4444',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{feedback.message}</span>
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}
@@ -144,11 +221,21 @@ export default function AdminOpportunitiesPage() {
         title={modalMode === 'create' ? 'Tambah Peluang Kerja Jepang' : 'Edit Peluang Kerja'}
         footer={
           <>
-            <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
+            <button
+              type="button"
+              onClick={() => setModalMode(null)}
+              className="btn btn-outline btn-sm"
+              disabled={actionLoading}
+            >
               Batal
             </button>
-            <button type="submit" form="opportunity-form" className="btn btn-primary btn-sm">
-              Simpan Peluang Kerja
+            <button
+              type="submit"
+              form="opportunity-form"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Menyimpan...' : 'Simpan Peluang Kerja'}
             </button>
           </>
         }
@@ -203,6 +290,7 @@ export default function AdminOpportunitiesPage() {
 
           <FormField
             label="Kriteria Bahasa Jepang"
+            required
             value={formData.languageReq}
             onChange={(e) => setFormData({ ...formData, languageReq: e.target.value })}
             placeholder="Contoh: JLPT N4 / JFT-Basic A2"
@@ -212,8 +300,10 @@ export default function AdminOpportunitiesPage() {
             label="Deskripsi Posisi & Tanggung Jawab"
             type="textarea"
             rows={3}
+            required
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="Jelaskan gambaran pekerjaan, fasilitas akomodasi, dan persyaratan umum..."
           />
 
           <FormField

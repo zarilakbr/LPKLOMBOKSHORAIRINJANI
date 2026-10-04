@@ -78,5 +78,63 @@ class ProgramClass extends Model
     {
         return $this->hasMany(PermissionRequest::class, 'class_id');
     }
+
+    /**
+     * Student enrollments in this class.
+     */
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class, 'class_id');
+    }
+
+    /**
+     * Active student enrollments in this class.
+     */
+    public function activeEnrollments()
+    {
+        return $this->hasMany(Enrollment::class, 'class_id')->where('status', Enrollment::STATUS_ACTIVE);
+    }
+
+    /**
+     * Enrolled students in this class.
+     */
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'enrollments', 'class_id', 'user_id')
+            ->withPivot(['id', 'status', 'enrolled_at', 'ended_at', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Currently active students in this class.
+     */
+    public function activeStudents()
+    {
+        return $this->students()->wherePivot('status', Enrollment::STATUS_ACTIVE);
+    }
+
+    /**
+     * Learning materials associated with this class.
+     */
+    public function materials()
+    {
+        return $this->hasMany(Material::class, 'class_id');
+    }
+
+    /**
+     * Published learning materials associated with this class.
+     */
+    public function publishedMaterials()
+    {
+        return $this->hasMany(Material::class, 'class_id')->where('is_published', true);
+    }
+
+    /**
+     * Timetabled learning sessions/schedules for this class.
+     */
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class, 'class_id');
+    }
 }
 

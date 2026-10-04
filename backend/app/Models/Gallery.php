@@ -17,12 +17,20 @@ class Gallery extends Model
         'description',
         'category',
         'sort_order',
-        'order',
         'status',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
-        'order' => 'integer',
     ];
+
+    public function getOrderAttribute(): int
+    {
+        return (int) ($this->attributes['sort_order'] ?? 0);
+    }
+
+    public function setOrderAttribute($value): void
+    {
+        $this->attributes['sort_order'] = (int) $value;
+    }
 }

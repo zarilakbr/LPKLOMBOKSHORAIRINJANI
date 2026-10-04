@@ -25,6 +25,16 @@ class ClassController extends BaseApiController
             $query->where('level', $request->level);
         }
 
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(class_name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(instructor) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(location) LIKE ?', [$term]);
+            });
+        }
+
         $classes = $query->orderBy('start_date', 'asc')->get();
 
         return $this->sendResponse(

@@ -1,25 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Calendar, CalendarCheck, FileText, FileCheck, Megaphone, CheckCircle2, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent, useRealtime } from '../../context/RealtimeContext';
 
-const allStudentNotifications = [
-  { id: 1, type: 'pendaftaran', icon: FileText, category: 'Pendaftaran', title: 'Status Berkas Pendaftaran', message: 'Dokumen pendaftaran program Anda sedang dalam verifikasi konselor.', isRead: false, createdAt: '15 menit yang lalu', link: '/dashboard/registrations' },
-  { id: 2, type: 'jadwal', icon: Calendar, category: 'Jadwal', title: 'Jadwal Kelas Berikutnya', message: 'Sesi Kanji & Kaiwa Bahasa Jepang N4 dijadwalkan besok pukul 08.00 WITA di Ruang Sakura 01.', isRead: false, createdAt: '1 jam yang lalu', link: '/dashboard/schedule' },
-  { id: 3, type: 'absensi', icon: CalendarCheck, category: 'Absensi', title: 'Pengingat Presensi Harian', message: 'Jangan lupa mengisi absensi kehadiran sebelum sesi kelas intensif pagi dimulai.', isRead: false, createdAt: '3 jam yang lalu', link: '/dashboard/attendance' },
-  { id: 4, type: 'izin', icon: FileCheck, category: 'Izin', title: 'Pengajuan Izin Disetujui', message: 'Pengajuan dispensasi tanggal 25 September telah disetujui sensei pengajar.', isRead: true, createdAt: '1 hari yang lalu', link: '/dashboard/permission' },
-  { id: 5, type: 'pengumuman', icon: Megaphone, category: 'Pengumuman', title: 'Pengumuman Try Out JLPT', message: 'Simulasi ujian mandiri JFT & JLPT N4 akan diselenggarakan hari Sabtu ini. Pendaftaran terbuka untuk semua angkatan.', isRead: true, createdAt: '2 hari yang lalu', link: null }
-];
+const getCategoryIcon = (type) => {
+  switch (type) {
+    case 'pendaftaran':
+      return FileText;
+    case 'jadwal':
+      return Calendar;
+    case 'absensi':
+      return CalendarCheck;
+    case 'izin':
+      return FileCheck;
+    case 'pengumuman':
+    default:
+      return Megaphone;
+  }
+};
 
 export default function StudentNotificationsPage() {
   const [filterType, setFilterType] = useState('ALL');
-  const [notifications, setNotifications] = useState(allStudentNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const { onReconnect } = useRealtime();
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/student/notifications');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const formatted = res.data.data.map((item) => ({
+          id: item.id,
+          type: item.type,
+          icon: getCategoryIcon(item.type),
+          category: (item.type || 'Umum').toUpperCase(),
+          title: item.title,
+          message: item.message,
+          isRead: Boolean(item.isRead ?? item.is_read),
+          createdAt: item.createdAtFormatted || 'Baru saja',
+          link: item.actionUrl || item.action_url || null
+        }));
+        setNotifications(formatted);
+      }
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  // Auto-resync when connection is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      loadNotifications();
+    });
+  }, [onReconnect, loadNotifications]);
+
+  // REALTIME EVENT: Notification Created
+  useRealtimeEvent('notification.created', (newNotif) => {
+    const formatted = {
+      id: newNotif.id || Date.now(),
+      type: newNotif.type || 'pengumuman',
+      icon: getCategoryIcon(newNotif.type),
+      category: (newNotif.type || 'Pemberitahuan').toUpperCase(),
+      title: newNotif.title || 'Pemberitahuan Baru',
+      message: newNotif.message || '',
+      isRead: false,
+      createdAt: 'Baru saja',
+      link: newNotif.action_url || newNotif.actionUrl || null
+    };
+
+    setNotifications((prev) => [formatted, ...prev.filter((n) => n.id !== formatted.id)]);
+  });
 
   const filtered = notifications.filter(
     (n) => filterType === 'ALL' || n.type === filterType
   );
 
-  const markAllRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
+  const markAsRead = async (id) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    try {
+      await apiClient.post(`/student/notifications/${id}/read`);
+    } catch (err) {
+      console.warn('Mark read request error:', err);
+    }
+  };
+
+  const markAllRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    try {
+      await apiClient.post('/student/notifications/read-all');
+    } catch (err) {
+      console.warn('Mark all read request error:', err);
+    }
   };
 
   return (
@@ -114,7 +193,7 @@ export default function StudentNotificationsPage() {
                   gap: '1rem',
                   alignItems: 'flex-start',
                   borderLeft: item.isRead ? '1px solid var(--border-subtle)' : '4px solid var(--vermilion)',
-                  backgroundColor: item.isRead ? 'var(--surface)' : 'var(--surface)'
+                  backgroundColor: 'var(--surface)'
                 }}
               >
                 <div
@@ -161,19 +240,39 @@ export default function StudentNotificationsPage() {
                     {item.message}
                   </p>
 
-                  {item.link && (
-                    <Link
-                      to={item.link}
-                      style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        color: 'var(--vermilion)',
-                        textDecoration: 'none'
-                      }}
-                    >
-                      Buka Rincian Menu &rarr;
-                    </Link>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                    {item.link && (
+                      <Link
+                        to={item.link}
+                        style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: 'var(--vermilion)',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        Buka Rincian Menu &rarr;
+                      </Link>
+                    )}
+
+                    {!item.isRead && (
+                      <button
+                        type="button"
+                        onClick={() => markAsRead(item.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: 0
+                        }}
+                      >
+                        Tandai sudah dibaca
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

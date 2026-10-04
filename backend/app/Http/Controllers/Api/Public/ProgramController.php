@@ -21,11 +21,11 @@ class ProgramController extends BaseApiController
             $query->where('category', $request->category);
         }
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('short_description', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(title) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(short_description) LIKE ?', [$term]);
             });
         }
 

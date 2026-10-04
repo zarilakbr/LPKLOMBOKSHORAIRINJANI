@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import { activityLogService } from '../../services/dataService';
@@ -7,17 +8,38 @@ export default function AdminActivityLogsPage() {
   const [logs, setLogs] = useState([]);
   const [search, setSearch] = useState('');
   const [filterAction, setFilterAction] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await activityLogService.getAll();
+      setLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load activity logs:', err);
+      setError('Gagal memuat catatan aktivitas.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    activityLogService.getAll().then((data) => setLogs(data));
+    loadData();
   }, []);
 
-  const filtered = logs.filter((l) => {
+  const filtered = (logs || []).filter((l) => {
+    const user = String(l?.user ?? '').toLowerCase();
+    const description = String(l?.description ?? '').toLowerCase();
+    const module = String(l?.module ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
     const matchSearch =
-      l.user.toLowerCase().includes(search.toLowerCase()) ||
-      l.description.toLowerCase().includes(search.toLowerCase()) ||
-      l.module.toLowerCase().includes(search.toLowerCase());
-    const matchAction = filterAction === 'ALL' || l.action === filterAction;
+      user.includes(searchTerm) ||
+      description.includes(searchTerm) ||
+      module.includes(searchTerm);
+    const matchAction = filterAction === 'ALL' || l?.action === filterAction;
     return matchSearch && matchAction;
   });
 
@@ -58,6 +80,23 @@ export default function AdminActivityLogsPage() {
       >
         <strong>Audit Trail:</strong> Seluruh aktivitas mutasi data administratif dicatat secara transparan untuk kepatuhan regulasi dan keamanan sistem.
       </div>
+
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
 
       <DataTable
         columns={columns}

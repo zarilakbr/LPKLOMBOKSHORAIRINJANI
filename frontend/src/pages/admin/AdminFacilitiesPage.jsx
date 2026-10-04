@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -12,6 +13,8 @@ export default function AdminFacilitiesPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -22,18 +25,31 @@ export default function AdminFacilitiesPage() {
     status: 'ACTIVE'
   });
 
-  const loadData = () => {
-    facilityService.getAll().then((data) => setFacilities(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await facilityService.getAll();
+      setFacilities(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load facilities:', err);
+      setError('Gagal memuat data sarana & fasilitas.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = facilities.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase()) ||
-    f.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (facilities || []).filter((f) => {
+    const name = String(f?.name ?? '').toLowerCase();
+    const description = String(f?.description ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    return name.includes(searchTerm) || description.includes(searchTerm);
+  });
 
   const handleOpenCreate = () => {
     setFormData({
@@ -118,13 +134,29 @@ export default function AdminFacilitiesPage() {
 
   return (
     <div>
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}
         totalItems={filtered.length}
         searchQuery={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Cari fasilitas kampus..."
+        searchPlaceholder="Cari fasilitas lembaga..."
         onAddNew={handleOpenCreate}
         addNewLabel="Tambah Fasilitas"
         onView={(row) => {
@@ -139,7 +171,7 @@ export default function AdminFacilitiesPage() {
       <Modal
         isOpen={modalMode === 'create' || modalMode === 'edit'}
         onClose={() => setModalMode(null)}
-        title={modalMode === 'create' ? 'Tambah Fasilitas Kampus' : 'Edit Fasilitas'}
+        title={modalMode === 'create' ? 'Tambah Fasilitas Lembaga' : 'Edit Fasilitas'}
         footer={
           <>
             <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">

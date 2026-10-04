@@ -20,11 +20,11 @@ class AdminGalleryController extends BaseApiController
     {
         $query = Gallery::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('category', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(title) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(category) LIKE ?', [$term]);
             });
         }
 
@@ -36,14 +36,20 @@ class AdminGalleryController extends BaseApiController
             $query->where('status', $request->status);
         }
 
-        $items = $query->orderBy('order', 'asc')->paginate(15);
+        $items = $query->orderBy('sort_order', 'asc')->paginate(15);
 
         return $this->sendPaginated($items, 'Daftar item galeri berhasil dimuat.');
     }
 
     public function store(StoreGalleryRequest $request): JsonResponse
     {
-        $item = Gallery::create($request->validated());
+        $data = $request->validated();
+        if (isset($data['order'])) {
+            $data['sort_order'] = (int) $data['order'];
+            unset($data['order']);
+        }
+
+        $item = Gallery::create($data);
 
         $this->activityLogService->log(
             $request->user()?->id,
@@ -82,7 +88,13 @@ class AdminGalleryController extends BaseApiController
             return $this->sendError('Item galeri tidak ditemukan.', [], 404);
         }
 
-        $item->update($request->validated());
+        $data = $request->validated();
+        if (isset($data['order'])) {
+            $data['sort_order'] = (int) $data['order'];
+            unset($data['order']);
+        }
+
+        $item->update($data);
 
         $this->activityLogService->log(
             $request->user()?->id,

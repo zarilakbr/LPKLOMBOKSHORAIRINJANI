@@ -159,7 +159,7 @@ export default function OpportunityDetailPage() {
                     Daftar Persiapan Sektor Ini
                   </Button>
                   <Button
-                    href={`https://wa.me/6281234567890?text=Halo%20LPK%20Lombok%20Shorai%20Rinjani,%20saya%20tertarik%20konsultasi%20peluang%20${encodeURIComponent(opportunity.title)}`}
+                    to="/contact"
                     variant="outline"
                     size="md"
                   >

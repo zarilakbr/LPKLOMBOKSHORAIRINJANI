@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminTopbar from './AdminTopbar';
+import AdminErrorBoundary from './AdminErrorBoundary';
 import { authService } from '../../services/dataService';
 import DashboardFooter from '../common/DashboardFooter';
 import '../../styles/admin.css';
@@ -41,6 +42,8 @@ export default function AdminLayout() {
         return 'Kelola Program Pelatihan';
       case '/admin/classes':
         return 'Jadwal & Kuota Angkatan Kelas';
+      case '/admin/materials':
+        return 'Materi Pembelajaran LMS';
       case '/admin/opportunities':
         return 'Peluang Kerja Tokutei Ginou';
       case '/admin/registrations':
@@ -52,7 +55,7 @@ export default function AdminLayout() {
       case '/admin/gallery':
         return 'Galeri Foto & Dokumentasi';
       case '/admin/facilities':
-        return 'Fasilitas & Sarana Kampus';
+        return 'Fasilitas & Sarana Lembaga';
       case '/admin/faqs':
         return 'Kelola Tanya Jawab (FAQ)';
       case '/admin/users':
@@ -92,7 +95,9 @@ export default function AdminLayout() {
         />
         <div className="admin-scroll-container">
           <main className="admin-content">
-            <Outlet />
+            <AdminErrorBoundary>
+              <Outlet />
+            </AdminErrorBoundary>
           </main>
           <DashboardFooter role="admin" />
         </div>

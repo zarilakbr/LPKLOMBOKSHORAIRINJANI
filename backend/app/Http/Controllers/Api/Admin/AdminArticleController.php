@@ -21,12 +21,12 @@ class AdminArticleController extends BaseApiController
     {
         $query = Article::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('category', 'like', "%{$search}%")
-                  ->orWhere('author', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $term = '%' . strtolower(trim($request->search)) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(title) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(category) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(author) LIKE ?', [$term]);
             });
         }
 

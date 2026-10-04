@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -10,16 +10,13 @@ import {
   History,
   CheckCircle2,
   Clock,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import StatusBadge from '../../components/admin/StatusBadge';
-import {
-  programService,
-  classService,
-  opportunityService,
-  registrationService,
-  activityLogService
-} from '../../services/dataService';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent, useRealtime } from '../../context/RealtimeContext';
 import { BRAND } from '../../config/brand';
 
 export default function AdminDashboardPage() {
@@ -29,36 +26,123 @@ export default function AdminDashboardPage() {
     activeClasses: 0,
     openOpportunities: 0
   });
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [pendingPermissions, setPendingPermissions] = useState(0);
   const [recentRegistrations, setRecentRegistrations] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [statusCounts, setStatusCounts] = useState({});
+  const [realtimeNotice, setRealtimeNotice] = useState(null);
 
-  useEffect(() => {
-    Promise.all([
-      registrationService.getAll(),
-      programService.getAll(),
-      classService.getAll(),
-      opportunityService.getAll(),
-      activityLogService.getAll()
-    ]).then(([regs, progs, classes, opps, logs]) => {
+  const { onReconnect } = useRealtime();
+
+  const loadAdminDashboard = useCallback(async () => {
+    try {
+      const [regRes, progRes, classRes, oppRes, logRes, userRes, permRes] = await Promise.allSettled([
+        apiClient.get('/admin/registrations'),
+        apiClient.get('/admin/programs'),
+        apiClient.get('/admin/classes'),
+        apiClient.get('/admin/opportunities'),
+        apiClient.get('/admin/activity-logs'),
+        apiClient.get('/admin/users'),
+        apiClient.get('/admin/permissions', { params: { status: 'pending' } })
+      ]);
+
+      const regs = regRes.status === 'fulfilled' && regRes.value.data?.data ? regRes.value.data.data : [];
+      const progs = progRes.status === 'fulfilled' && progRes.value.data?.data ? progRes.value.data.data : [];
+      const classes = classRes.status === 'fulfilled' && classRes.value.data?.data ? classRes.value.data.data : [];
+      const opps = oppRes.status === 'fulfilled' && oppRes.value.data?.data ? oppRes.value.data.data : [];
+      const logs = logRes.status === 'fulfilled' && logRes.value.data?.data ? logRes.value.data.data : [];
+
+      if (userRes.status === 'fulfilled') {
+        const uList = userRes.value.data?.data || userRes.value.data || [];
+        const pendingU = (Array.isArray(uList) ? uList : []).filter(
+          (u) => u.status === 'PENDING' || u.status === 'PENDING_VERIFICATION'
+        ).length;
+        setPendingApprovals(pendingU);
+      }
+
+      if (permRes.status === 'fulfilled') {
+        const pList = permRes.value.data?.data || permRes.value.data || [];
+        const pendingP = (Array.isArray(pList) ? pList : []).filter(
+          (p) => String(p?.status || '').toLowerCase() === 'pending'
+        ).length;
+        setPendingPermissions(pendingP);
+      }
+
       setStats({
         totalRegistrations: regs.length,
-        activePrograms: progs.filter((p) => p.status === 'ACTIVE').length,
+        activePrograms: progs.filter((p) => p.status === 'ACTIVE' || p.status === 'Aktif').length,
         activeClasses: classes.filter((c) => c.status === 'OPEN' || c.status === 'ONGOING').length,
-        openOpportunities: opps.filter((o) => o.status === 'OPEN').length
+        openOpportunities: opps.filter((o) => o.status === 'OPEN' || o.status === 'Buka').length
       });
 
       setRecentRegistrations(regs.slice(0, 5));
       setRecentActivities(logs.slice(0, 5));
 
-      // Calculate pipeline distribution
       const counts = {};
       regs.forEach((r) => {
-        counts[r.status] = (counts[r.status] || 0) + 1;
+        const st = String(r?.status || 'NEW').toUpperCase();
+        counts[st] = (counts[st] || 0) + 1;
       });
       setStatusCounts(counts);
-    });
+    } catch (err) {
+      console.warn('Admin API fetch failed:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAdminDashboard();
+  }, [loadAdminDashboard]);
+
+  // Auto-resync when connection is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      loadAdminDashboard();
+    });
+  }, [onReconnect, loadAdminDashboard]);
+
+  // REALTIME EVENT LISTENERS (Admin Channel)
+  // 1. Siswa baru mendaftar dari web: Muncul live di Admin Dashboard tanpa refresh
+  useRealtimeEvent('registration.created', (data) => {
+    const newReg = {
+      id: data.id || Date.now(),
+      full_name: data.userName || data.fullName,
+      fullName: data.userName || data.fullName,
+      email: data.email,
+      phone: data.phone,
+      program_name: data.programTitle,
+      programTitle: data.programTitle,
+      status: 'NEW',
+      created_at: 'Baru saja'
+    };
+
+    setRecentRegistrations((prev) => [newReg, ...prev.slice(0, 4)]);
+    setStats((prev) => ({ ...prev, totalRegistrations: prev.totalRegistrations + 1 }));
+    setStatusCounts((prev) => ({ ...prev, NEW: (prev.NEW || 0) + 1 }));
+
+    setRealtimeNotice(`🔔 Pendaftaran baru diterima: ${newReg.fullName} (${data.programTitle || 'Program'})`);
+  });
+
+  // 2. Enrollment created
+  useRealtimeEvent('enrollment.created', (data) => {
+    setRealtimeNotice(`Alokasi kelas baru: ${data.studentName} dialokasikan ke ${data.className}.`);
+  });
+
+  // 3. Attendance recorded
+  useRealtimeEvent('attendance.recorded', (data) => {
+    const newLog = {
+      id: Date.now(),
+      action: 'ATTENDANCE',
+      description: `Presensi siswa: ${data.userName} (${String(data?.status || '').toUpperCase()}) di ${data.className}.`,
+      created_at: 'Baru saja'
+    };
+    setRecentActivities((prev) => [newLog, ...prev.slice(0, 4)]);
+  });
+
+  // 4. Permission created
+  useRealtimeEvent('permission.created', (data) => {
+    setRealtimeNotice(`Pengajuan izin baru dari ${data.studentName} (${data.type}) untuk kelas ${data.className}.`);
+  });
 
   const statCards = [
     {
@@ -123,238 +207,376 @@ export default function AdminDashboardPage() {
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
-            Selamat Datang di Panel Pengelolaan {BRAND.name}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--vermilion)', fontSize: '0.78rem', fontWeight: 800, marginBottom: '0.35rem' }}>
+            <Sparkles size={14} />
+            <span>SISTEM OPERASIONAL REALTIME</span>
+          </div>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: '0 0 0.25rem 0' }}>
+            Portal Manajemen & Administrasi Terpadu
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', margin: '0.25rem 0 0 0' }}>
-            Data di bawah ini disajikan menggunakan lapisan mock data pengembangan terisolasi (Phase 2).
+          <p style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', margin: 0 }}>
+            Perubahan pendaftaran, absensi, dan alokasi kelas diterima secara live tanpa reload halaman.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link to="/admin/registrations" className="btn btn-primary btn-sm">
-            Lihat Pendaftar Masuk
-          </Link>
-        </div>
+        <Link
+          to="/admin/registrations"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.55rem 1.1rem',
+            backgroundColor: 'var(--vermilion)',
+            color: '#FFFFFF',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            borderRadius: 'var(--radius-sm)',
+            textDecoration: 'none'
+          }}
+        >
+          <span>Kelola Registrasi</span>
+          <ArrowRight size={16} />
+        </Link>
       </div>
 
-      {/* 4 Statistics Cards */}
+      {/* Realtime Alert Banner */}
+      {realtimeNotice && (
+        <div
+          style={{
+            padding: '0.85rem 1.25rem',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            border: '1px solid rgba(37, 99, 235, 0.25)',
+            color: '#2563EB',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.5rem',
+            fontSize: '0.86rem',
+            fontWeight: 700
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <Sparkles size={16} />
+            <span>{realtimeNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRealtimeNotice(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 800 }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Pending Items Action Bar (Rule 11 & Rule 18 shortcuts) */}
+      {(pendingApprovals > 0 || pendingPermissions > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {pendingApprovals > 0 && (
+            <div
+              style={{
+                padding: '0.85rem 1.15rem',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <ShieldCheck size={20} color="var(--vermilion)" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--admin-text-primary)' }}>
+                    {pendingApprovals} Verifikasi Akun Menunggu
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)' }}>
+                    Pendaftaran siswa/pengajar baru perlu disetujui.
+                  </div>
+                </div>
+              </div>
+              <Link
+                to="/admin/users?tab=verification"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: 'var(--vermilion)',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Tinjau Akun &rarr;
+              </Link>
+            </div>
+          )}
+
+          {pendingPermissions > 0 && (
+            <div
+              style={{
+                padding: '0.85rem 1.15rem',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <FileText size={20} color="#D97706" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--admin-text-primary)' }}>
+                    {pendingPermissions} Permohonan Izin Menunggu
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)' }}>
+                    Pengajuan izin dan sakit siswa perlu ditinjau.
+                  </div>
+                </div>
+              </div>
+              <Link
+                to="/admin/permissions"
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: '#D97706',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Lihat Permohonan &rarr;
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Metric Cards Grid */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
           gap: '1.25rem',
           marginBottom: '2rem'
         }}
       >
-        {statCards.map((card, idx) => {
+        {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Link key={idx} to={card.link} className="admin-stat-card" style={{ textDecoration: 'none' }}>
-              <div>
-                <div className="admin-stat-label">{card.label}</div>
-                <div className="admin-stat-value">{card.value}</div>
+            <Link
+              key={card.label}
+              to={card.link}
+              style={{
+                display: 'block',
+                textDecoration: 'none',
+                padding: '1.25rem',
+                backgroundColor: 'var(--admin-surface)',
+                border: '1px solid var(--admin-border)',
+                borderRadius: 'var(--radius-md)',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+                  {card.label}
+                </span>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: card.bg,
+                    color: card.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Icon size={18} />
+                </div>
               </div>
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: card.bg,
-                  color: card.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Icon size={24} />
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--admin-text-primary)', lineHeight: 1 }}>
+                {card.value}
               </div>
             </Link>
           );
         })}
       </div>
 
-      {/* Middle Grid: Pipeline Status Distribution & Recent Activities */}
+      {/* Pipeline Status Overview */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1.35fr 1fr',
-          gap: '1.5rem',
+          padding: '1.5rem',
+          backgroundColor: 'var(--admin-surface)',
+          border: '1px solid var(--admin-border)',
+          borderRadius: 'var(--radius-md)',
           marginBottom: '2rem'
         }}
-        className="dashboard-split"
       >
-        {/* Registration Pipeline Visual Progress */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
+              Pipeline Seleksi & Verifikasi Calon Siswa
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--admin-text-muted)', margin: '0.2rem 0 0 0' }}>
+              Distribusi status berkas pendaftaran dan proses penempatan kerja Jepang
+            </p>
+          </div>
+          <Link
+            to="/admin/registrations"
+            style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--vermilion)', textDecoration: 'none' }}
+          >
+            Buka Pipeline &rarr;
+          </Link>
+        </div>
+
         <div
           style={{
-            backgroundColor: 'var(--admin-surface)',
-            border: '1px solid var(--admin-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '1.75rem'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+            gap: '1rem'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
-                Status Pipeline Pendaftaran Siswa
-              </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', margin: '0.2rem 0 0 0' }}>
-                Distribusi status proses seleksi & penerimaan calon peserta
-              </p>
-            </div>
-            <Link to="/admin/registrations" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--vermilion)' }}>
-              Kelola Pipeline &rarr;
+          {pipelineStages.map((stage) => {
+            const count = statusCounts[stage.key] || 0;
+            return (
+              <div
+                key={stage.key}
+                style={{
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--admin-surface-muted, rgba(0,0,0,0.02))',
+                  border: '1px solid var(--admin-border)',
+                  borderTop: `3px solid ${stage.color}`
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--admin-text-muted)', marginBottom: '0.35rem' }}>
+                  {stage.label}
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--admin-text-primary)' }}>
+                  {count}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Two Columns: Recent Registrations & Activity Audit */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.5rem' }}>
+        {/* Recent Registrations Table */}
+        <div
+          style={{
+            padding: '1.5rem',
+            backgroundColor: 'var(--admin-surface)',
+            border: '1px solid var(--admin-border)',
+            borderRadius: 'var(--radius-md)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
+              Pendaftaran Terbaru (Live)
+            </h3>
+            <Link
+              to="/admin/registrations"
+              style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--vermilion)', textDecoration: 'none' }}
+            >
+              Lihat Semua &rarr;
+            </Link>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {recentRegistrations.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--admin-text-muted)', fontSize: '0.84rem' }}>
+                Belum ada pendaftaran masuk.
+              </div>
+            ) : (
+              recentRegistrations.map((reg) => (
+                <div
+                  key={reg.id}
+                  style={{
+                    padding: '0.85rem 1rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--admin-border)',
+                    backgroundColor: 'var(--admin-surface-muted, rgba(0,0,0,0.01))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--admin-text-primary)' }}>
+                      {reg.full_name || reg.fullName}
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--admin-text-muted)', marginTop: '0.15rem' }}>
+                      {reg.program_name || reg.programTitle || 'Program Tokutei Ginou'}
+                    </div>
+                  </div>
+                  <StatusBadge status={String(reg?.status || 'NEW').toUpperCase()} />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Activity Logs (Audit Trail) */}
+        <div
+          style={{
+            padding: '1.5rem',
+            backgroundColor: 'var(--admin-surface)',
+            border: '1px solid var(--admin-border)',
+            borderRadius: 'var(--radius-md)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
+              Log Aktivitas Sistem Terkini
+            </h3>
+            <Link
+              to="/admin/activity-logs"
+              style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--vermilion)', textDecoration: 'none' }}
+            >
+              Audit Log &rarr;
             </Link>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {pipelineStages.map((stage) => {
-              const count = statusCounts[stage.key] || 0;
-              const percent = stats.totalRegistrations > 0
-                ? Math.round((count / stats.totalRegistrations) * 100)
-                : 0;
-
-              return (
-                <div key={stage.key}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.35rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--admin-text-secondary)' }}>{stage.label}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>
-                      {count} Siswa ({percent}%)
-                    </span>
-                  </div>
-                  <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--admin-row-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${percent}%`,
-                        height: '100%',
-                        backgroundColor: stage.color,
-                        borderRadius: '4px',
-                        transition: 'width 0.4s ease'
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Recent Audit Activities */}
-        <div
-          style={{
-            backgroundColor: 'var(--admin-surface)',
-            border: '1px solid var(--admin-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '1.75rem'
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
-                Aktivitas Terbaru
-              </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', margin: '0.2rem 0 0 0' }}>
-                Log mutasi sistem administratif
-              </p>
-            </div>
-            <Link to="/admin/activity-logs" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--vermilion)' }}>
-              Lihat Log &rarr;
-            </Link>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {recentActivities.map((act) => (
-              <div key={act.id} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+            {recentActivities.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--admin-text-muted)', fontSize: '0.84rem' }}>
+                Belum ada aktivitas tercatat.
+              </div>
+            ) : (
+              recentActivities.map((act) => (
                 <div
+                  key={act.id}
                   style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--admin-row-border)',
-                    color: 'var(--vermilion)',
+                    padding: '0.8rem 1rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--admin-border)',
+                    backgroundColor: 'var(--admin-surface-muted, rgba(0,0,0,0.01))',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginTop: '0.1rem'
+                    alignItems: 'flex-start',
+                    gap: '0.65rem'
                   }}
                 >
-                  <History size={15} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: 500, lineHeight: 1.4 }}>
-                    {act.description}
+                  <Clock size={16} color="var(--admin-text-muted)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--admin-text-primary)' }}>
+                      {act.description || act.action || 'Aktivitas pengguna'}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
+                      {act.created_at || 'Baru saja'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
-                    {act.user} • {act.timestamp}
-                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
-
-      {/* Bottom Table: Recent Registrations */}
-      <div className="admin-table-container">
-        <div className="admin-table-toolbar">
-          <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>
-              Pendaftaran Siswa Masuk Terbaru
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', margin: '0.2rem 0 0 0' }}>
-              Data formulir yang diisi oleh calon peserta didik
-            </p>
-          </div>
-
-          <Link to="/admin/registrations" className="btn btn-outline btn-sm">
-            Semua Pendaftaran &rarr;
-          </Link>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>No. Reg</th>
-                <th>Nama Siswa</th>
-                <th>Kontak WhatsApp</th>
-                <th>Program Minat</th>
-                <th>Asal Kota</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Tanggal Masuk</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentRegistrations.map((reg) => (
-                <tr key={reg.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--vermilion)' }}>
-                    {reg.registrationCode}
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{reg.fullName}</td>
-                  <td>{reg.phone}</td>
-                  <td>{reg.programInterest}</td>
-                  <td>{reg.city}</td>
-                  <td>
-                    <StatusBadge status={reg.status} />
-                  </td>
-                  <td style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--admin-text-muted)' }}>
-                    {reg.createdAt}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <style>{`
-        @media (max-width: 960px) {
-          .dashboard-split {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function ContactPage() {
             jpSubtitle="お問い合わせ"
             categoryTag="HUBUNGI KAMI"
             title="Pintu Konsultasi Selalu Terbuka untuk Masa Depan Anda"
-            subtitle="Kunjungi kampus kami, kirimkan pesan formulir, atau hubungi langsung via WhatsApp untuk respon cepat dari konsultan kami."
+            subtitle="Kunjungi lembaga kami, kirimkan pesan formulir, atau hubungi langsung via WhatsApp untuk respon cepat dari konsultan kami."
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '3.5rem', marginTop: '2.5rem' }} className="contact-split">
@@ -43,7 +43,7 @@ export default function ContactPage() {
                       <MapPin size={22} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Kampus & Kantor Pusat</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Gedung Pelatihan & Kantor Pusat</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
                         {mockSiteSettings.address}
                       </p>
@@ -60,13 +60,15 @@ export default function ContactPage() {
                     <div>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Telepon & WhatsApp</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        {mockSiteSettings.phone} / {mockSiteSettings.whatsapp}
+                        {mockSiteSettings.phone || mockSiteSettings.whatsapp ? `${mockSiteSettings.phone} / ${mockSiteSettings.whatsapp}` : 'Nomor kontak resmi sedang dalam proses pembaruan administrasi.'}
                       </p>
-                      <div style={{ marginTop: '0.75rem' }}>
-                        <Button href={mockSiteSettings.whatsappUrl} variant="primary" size="sm">
-                          Chat Langsung via WhatsApp
-                        </Button>
-                      </div>
+                      {mockSiteSettings.whatsappUrl && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <Button href={mockSiteSettings.whatsappUrl} variant="primary" size="sm">
+                            Chat Langsung via WhatsApp
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -93,7 +95,7 @@ export default function ContactPage() {
                       <Clock size={22} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Jam Operasional Kampus</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Jam Operasional Lembaga</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
                         {mockSiteSettings.operatingHours}
                       </p>
@@ -177,7 +179,7 @@ export default function ContactPage() {
                       <option value="Jadwal Kelas">Jadwal Kelas & Pendaftaran</option>
                       <option value="Tokutei Ginou">Persyaratan Kerja Tokutei Ginou (SSW)</option>
                       <option value="Biaya & Asrama">Informasi Biaya & Fasilitas Asrama</option>
-                      <option value="Kunjungan Kampus">Reservasi Kunjungan Kampus</option>
+                      <option value="Kunjungan Lembaga">Reservasi Kunjungan Lembaga</option>
                       <option value="Lainnya">Pertanyaan Lainnya</option>
                     </select>
                   </div>
@@ -209,7 +211,7 @@ export default function ContactPage() {
 
           {/* Interactive Map Placeholder */}
           <div style={{ marginTop: '4rem' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Peta Lokasi Kampus</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Peta Lokasi Lembaga</h3>
             <div
               style={{
                 width: '100%',

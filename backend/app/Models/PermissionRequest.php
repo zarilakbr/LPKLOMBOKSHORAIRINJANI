@@ -41,6 +41,14 @@ class PermissionRequest extends Model
     ];
 
     /**
+     * Ensure status is always normalized to lowercase.
+     */
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = $value ? strtolower($value) : self::STATUS_PENDING;
+    }
+
+    /**
      * The student requesting permission.
      */
     public function user()

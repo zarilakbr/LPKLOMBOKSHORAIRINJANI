@@ -9,12 +9,12 @@ class ProgramPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isStaff();
+        return $user->isAdmin();
     }
 
     public function view(User $user, Program $program): bool
     {
-        return $user->isStaff();
+        return $user->isAdmin();
     }
 
     public function create(User $user): bool
@@ -29,6 +29,6 @@ class ProgramPolicy
 
     public function delete(User $user, Program $program): bool
     {
-        return $user->isSuperAdmin();
+        return $user->isAdmin();
     }
 }

@@ -16,7 +16,7 @@ export const mockClasses = [
     endDate: "2027-02-15",
     capacity: 20,
     currentStudents: 16,
-    location: "Ruang Sakura (Lantai 2, Kampus Utama)",
+    location: "Ruang Sakura (Lantai 2, Gedung Utama)",
     status: "OPEN"
   },
   {
@@ -31,7 +31,7 @@ export const mockClasses = [
     endDate: "2027-02-20",
     capacity: 20,
     currentStudents: 20,
-    location: "Ruang Fuji (Lantai 1, Kampus Utama)",
+    location: "Ruang Fuji (Lantai 1, Gedung Utama)",
     status: "FULL"
   },
   {

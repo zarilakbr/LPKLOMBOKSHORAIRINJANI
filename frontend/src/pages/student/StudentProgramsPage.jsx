@@ -48,16 +48,11 @@ export default function StudentProgramsPage() {
               </div>
 
               <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
-                <Button
-                  href={`https://wa.me/6281234567890?text=${encodeURIComponent(`Halo ${BRAND.name}, saya ingin konsultasi mengenai program ${prog.title}, jadwal pendaftaran, dan informasi biayanya.`)}`}
-                  variant="primary"
-                  size="sm"
-                  icon={MessageCircle}
-                >
-                  Konsultasi via WhatsApp
-                </Button>
-                <Button to={`/programs/${prog.slug}`} variant="outline" size="sm" icon={ArrowRight}>
+                <Button to={`/programs/${prog.slug}`} variant="primary" size="sm" icon={ArrowRight}>
                   Detail Kurikulum
+                </Button>
+                <Button to="/contact" variant="outline" size="sm" icon={MessageCircle}>
+                  Konsultasi Program
                 </Button>
               </div>
             </div>

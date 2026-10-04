@@ -18,7 +18,8 @@ class StoreClassRequest extends FormRequest
         return [
             'class_name'       => ['required', 'string', 'max:255'],
             'program_id'       => ['nullable', 'exists:programs,id'],
-            'instructor'       => ['required', 'string', 'max:255'],
+            'teacher_id'       => ['nullable', 'exists:users,id'],
+            'instructor'       => ['nullable', 'string', 'max:255'],
             'level'            => ['nullable', 'string', 'max:100'],
             'schedule'         => ['required', 'string', 'max:255'],
             'start_date'       => ['required', 'date'],
@@ -27,6 +28,7 @@ class StoreClassRequest extends FormRequest
             'current_students' => ['nullable', 'integer', 'min:0'],
             'location'         => ['required', 'string', 'max:255'],
             'status'           => ['required', 'in:UPCOMING,OPEN,FULL,ONGOING,COMPLETED'],
+            'description'      => ['nullable', 'string'],
         ];
     }
 

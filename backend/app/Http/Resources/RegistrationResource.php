@@ -25,7 +25,7 @@ class RegistrationResource extends JsonResource
             'japanGoal'        => $this->japan_goal,
             'message'          => $this->message,
             'status'           => $this->status,
-            'adminNotes'       => $this->admin_notes,
+            'adminNotes'       => $this->when($request->user()?->isAdmin(), $this->admin_notes),
             'createdAt'        => $this->created_at?->toISOString(),
             'updatedAt'        => $this->updated_at?->toISOString(),
         ];

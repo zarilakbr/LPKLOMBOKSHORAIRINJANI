@@ -7,13 +7,20 @@ import { settingsService } from '../../services/dataService';
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    settingsService.getSettings().then((data) => {
-      setSettings(data);
-      setLoading(false);
-    });
+    settingsService.getSettings()
+      .then((data) => {
+        setSettings(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load settings:', err);
+        setError('Gagal memuat pengaturan sistem.');
+        setLoading(false);
+      });
   }, []);
 
   const handleSubmit = async (e) => {
@@ -23,8 +30,16 @@ export default function AdminSettingsPage() {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  if (loading || !settings) {
+  if (loading) {
     return <div style={{ padding: '2rem' }}>Memuat konfigurasi sistem...</div>;
+  }
+
+  if (error || !settings) {
+    return (
+      <div style={{ padding: '2rem', color: '#EF4444' }}>
+        {error || 'Data pengaturan tidak ditemukan.'}
+      </div>
+    );
   }
 
   return (
@@ -82,7 +97,7 @@ export default function AdminSettingsPage() {
           />
 
           <FormField
-            label="Alamat Kampus Lengkap"
+            label="Alamat Lembaga Lengkap"
             type="textarea"
             rows={2}
             required
@@ -124,7 +139,7 @@ export default function AdminSettingsPage() {
               onChange={(e) => setSettings({ ...settings, email: e.target.value })}
             />
             <FormField
-              label="Jam Operasional Kampus"
+              label="Jam Operasional Lembaga"
               value={settings.operatingHours}
               onChange={(e) => setSettings({ ...settings, operatingHours: e.target.value })}
             />

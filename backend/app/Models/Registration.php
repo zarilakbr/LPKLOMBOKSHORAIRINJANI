@@ -37,6 +37,14 @@ class Registration extends Model
         'registration_date' => 'datetime',
     ];
 
+    /**
+     * Ensure status is always normalized to uppercase.
+     */
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = $value ? strtoupper($value) : 'PENDING';
+    }
+
     protected static function boot()
     {
         parent::boot();

@@ -104,7 +104,8 @@ export default function Hero() {
               {hero.primaryCtaText || 'Jelajahi Program'}
             </Button>
             <Button
-              href={mockSiteSettings.whatsappUrl}
+              to={mockSiteSettings.whatsappUrl ? undefined : "/contact"}
+              href={mockSiteSettings.whatsappUrl || undefined}
               variant="outline"
               size="lg"
               icon={PhoneCall}
@@ -116,7 +117,7 @@ export default function Hero() {
                 backdropFilter: 'blur(8px)'
               }}
             >
-              {hero.secondaryCtaText || 'Konsultasi via WhatsApp'}
+              {hero.secondaryCtaText || 'Hubungi LPK'}
             </Button>
           </div>
 

@@ -15,6 +15,7 @@ export default function RegisterPage() {
   const [programsList, setProgramsList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null);
+  const [apiError, setApiError] = useState(null);
   const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
@@ -68,10 +69,17 @@ export default function RegisterPage() {
     if (!validate()) return;
 
     setSubmitting(true);
+    setApiError(null);
     try {
       const res = await registrationService.submit(formData);
       setSubmitResult(res);
     } catch (error) {
+      const errorMsg =
+        error.response?.data?.message ||
+        (error.response?.data?.errors ? Object.values(error.response.data.errors)[0]?.[0] : null) ||
+        error.message ||
+        'Pendaftaran gagal dikirim ke server backend.';
+      setApiError(errorMsg);
       console.error(error);
     } finally {
       setSubmitting(false);
@@ -161,10 +169,10 @@ export default function RegisterPage() {
                   Kembali ke Beranda
                 </Button>
                 <Button
-                  href="https://wa.me/6281234567890?text=Halo%20LPK%20Lombok%20Shorai%20Rinjani,%20saya%20sudah%20mengisi%20formulir%20pendaftaran"
+                  to="/contact"
                   variant="primary"
                 >
-                  Konfirmasi via WhatsApp
+                  Hubungi Kantor LPK
                 </Button>
               </div>
             </div>
@@ -176,6 +184,22 @@ export default function RegisterPage() {
                 backgroundColor: 'var(--bg-surface)'
               }}
             >
+              {apiError && (
+                <div
+                  style={{
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1.5rem',
+                    backgroundColor: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: 'var(--radius-sm)',
+                    color: '#B91C1C',
+                    fontSize: '0.92rem',
+                    fontWeight: 600
+                  }}
+                >
+                  {apiError}
+                </div>
+              )}
               <form onSubmit={handleSubmit}>
                 {/* 1. Data Pribadi */}
                 <div style={{ marginBottom: '2rem' }}>

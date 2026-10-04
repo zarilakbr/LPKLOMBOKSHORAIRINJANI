@@ -15,17 +15,17 @@ export const BRAND = {
   logo: "/assets/brand/logo.png",
   logoJpg: "/assets/brand/logo.jpg",
   email: "info@lombokshorairinjani.co.id",
-  phone: "+62 812-3456-7890",
-  whatsapp: "+62 812-3456-7890",
-  whatsappUrl: "https://wa.me/6281234567890?text=Halo%20LPK%20Lombok%20Shorai%20Rinjani,%20saya%20ingin%20konsultasi%20program%20pelatihan%20bahasa%20Jepang%20dan%20karier%20ke%20Jepang",
-  address: "Jl. Pariwisata Rinjani No. 88, Gedung Lombok Shorai Center, Mataram, Nusa Tenggara Barat",
-  legalAccreditation: "Izin Operasional Disnaker No. 560/LPK-LSR/2023 | Terakreditasi",
+  phone: "",
+  whatsapp: "",
+  whatsappUrl: null,
+  address: "Kota Mataram, Nusa Tenggara Barat (Alamat operasional lengkap akan diperbarui)",
+  legalAccreditation: "Lembaga Pelatihan Kerja Resmi Terdaftar (Nomor izin operasional dalam proses verifikasi)",
   operatingHours: "Senin – Sabtu: 08.00 – 17.00 WITA",
   socialMedia: {
-    instagram: "https://instagram.com/lombokshorairinjani.id",
-    tiktok: "https://tiktok.com/@lombokshorairinjani.id",
-    youtube: "https://youtube.com/@lombokshorairinjani_official",
-    facebook: "https://facebook.com/lombokshorairinjani.official",
+    instagram: "",
+    tiktok: "",
+    youtube: "",
+    facebook: "",
   }
 };
 

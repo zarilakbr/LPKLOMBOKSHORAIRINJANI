@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   GraduationCap,
@@ -14,7 +14,9 @@ import {
   AlertCircle,
   FileCheck
 } from 'lucide-react';
-import { authService, classService } from '../../services/dataService';
+import { authService } from '../../services/dataService';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent, useRealtime } from '../../context/RealtimeContext';
 import { BRAND } from '../../config/brand';
 import Button from '../../components/common/Button';
 
@@ -25,24 +27,85 @@ export default function TeacherDashboardPage() {
   };
 
   const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [pendingPermissions, setPendingPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [realtimeAlert, setRealtimeAlert] = useState(null);
 
-  useEffect(() => {
-    classService.getAll().then((data) => {
-      setClasses(data);
+  const { onReconnect } = useRealtime();
+
+  const loadTeacherData = useCallback(async () => {
+    try {
+      const [classRes, studentRes, permRes] = await Promise.allSettled([
+        apiClient.get('/teacher/classes'),
+        apiClient.get('/teacher/students'),
+        apiClient.get('/teacher/permissions')
+      ]);
+
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success) {
+        setClasses(classRes.value.data.data || []);
+      }
+      if (studentRes.status === 'fulfilled' && studentRes.value.data?.success) {
+        setStudents(studentRes.value.data.data || []);
+      }
+      if (permRes.status === 'fulfilled' && permRes.value.data?.success) {
+        const allPerms = permRes.value.data.data || [];
+        setPendingPermissions(allPerms.filter((p) => p.status === 'pending' || p.status === 'PENDING'));
+      }
+    } catch (err) {
+      console.warn('Teacher API fetch error, fallback to initial state:', err);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
 
-  const totalStudents = classes.reduce((sum, cls) => sum + (cls.enrolledCount || 0), 0);
+  useEffect(() => {
+    loadTeacherData();
+  }, [loadTeacherData]);
 
-  // Mock student highlights for teacher's active classes (Clearly identified as development data)
-  const studentHighlights = [
-    { id: 1, name: 'Ahmad Fajar Pratama', className: 'Batch 48 Reguler', target: 'JLPT N4', attendanceRate: '98%', status: 'Aktif' },
-    { id: 2, name: 'Siti Nurhaliza', className: 'Batch 49 Intensif', target: 'JFT-Basic', attendanceRate: '100%', status: 'Aktif' },
-    { id: 3, name: 'Rian Hidayat', className: 'Batch 08 Executive', target: 'Tokutei Ginou SSW', attendanceRate: '92%', status: 'Izin Disetujui' },
-    { id: 4, name: 'Dewi Lestari', className: 'Batch 03 Kaigo', target: 'Kaigo Evaluation', attendanceRate: '95%', status: 'Aktif' }
-  ];
+  // Auto-resync when connection is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      loadTeacherData();
+    });
+  }, [onReconnect, loadTeacherData]);
+
+  // REALTIME EVENT LISTENERS (Teacher Portal)
+  // 1. Siswa mengajukan izin: Pengajar menerima notifikasi realtime dan daftar pending izin bertambah
+  useRealtimeEvent('permission.created', (data) => {
+    setPendingPermissions((prev) => [data, ...prev.filter((p) => p.id !== data.id)]);
+    setRealtimeAlert({
+      type: 'permission',
+      message: `🔔 Permohonan izin baru dari ${data.studentName || 'Siswa'} (${data.type || 'izin'}) masuk untuk kelas ${data.className || ''}.`
+    });
+  });
+
+  // 2. Presensi dicatat
+  useRealtimeEvent('attendance.recorded', (data) => {
+    setRealtimeAlert({
+      type: 'attendance',
+      message: `Presensi kehadiran siswa dicatat: ${data.userName || 'Siswa'} (${(data.status || '').toUpperCase()}).`
+    });
+  });
+
+  // 3. Siswa baru dienroll ke kelas teacher
+  useRealtimeEvent('enrollment.created', (data) => {
+    setStudents((prev) => {
+      const newStudent = {
+        id: data.studentId,
+        name: data.studentName,
+        className: data.className,
+        status: 'Aktif'
+      };
+      return [newStudent, ...prev.filter((s) => s.id !== data.studentId)];
+    });
+    setRealtimeAlert({
+      type: 'enrollment',
+      message: `Siswa baru dialokasikan ke kelas ${data.className}: ${data.studentName}.`
+    });
+  });
+
+  const totalStudents = students.length > 0 ? students.length : classes.reduce((sum, cls) => sum + (cls.current_students || cls.enrolledCount || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -82,6 +145,36 @@ export default function TeacherDashboardPage() {
         </div>
       </div>
 
+      {/* Realtime Alert Banner */}
+      {realtimeAlert && (
+        <div
+          style={{
+            padding: '0.85rem 1.25rem',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'var(--ochre-subtle)',
+            border: '1px solid var(--ochre-border)',
+            color: 'var(--ochre, #B45309)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.86rem',
+            fontWeight: 700
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <Sparkles size={16} />
+            <span>{realtimeAlert.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRealtimeAlert(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 800 }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* 2. RINGKASAN KELAS (METRICS) */}
       <div>
         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
@@ -102,10 +195,10 @@ export default function TeacherDashboardPage() {
               </div>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {classes.length > 0 ? `${classes.length} Angkatan` : '4 Angkatan'}
+              {classes.length} Angkatan
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              N5 Dasar, N4 Intensif, Kaigo & SSW
+              Kelas dalam binaan aktif Anda
             </div>
           </div>
 
@@ -117,114 +210,48 @@ export default function TeacherDashboardPage() {
               </div>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {totalStudents > 0 ? `${totalStudents} Siswa` : '68 Siswa'}
+              {totalStudents} Siswa
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--emerald)', marginTop: '0.35rem', fontWeight: 600 }}>
-              Terdaftar di angkatan aktif
+              Terdaftar di enrollment aktif
             </div>
           </div>
 
           <div className="student-card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Rata-rata Presensi</span>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--emerald-subtle)', color: 'var(--emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ClipboardCheck size={17} />
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Permohonan Izin Pending</span>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: pendingPermissions.length > 0 ? 'var(--vermilion-subtle)' : 'var(--emerald-subtle)', color: pendingPermissions.length > 0 ? 'var(--vermilion)' : 'var(--emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileCheck size={17} />
               </div>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              96.8%
+              {pendingPermissions.length} Izin
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              Disiplin kehadiran tinggi
+              {pendingPermissions.length > 0 ? (
+                <Link to="/teacher/permissions" style={{ color: 'var(--vermilion)', fontWeight: 700, textDecoration: 'none' }}>Review sekarang &rarr;</Link>
+              ) : 'Semua izin telah ditinjau'}
             </div>
           </div>
 
           <div className="student-card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Modul Selesai</span>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--vermilion-subtle)', color: 'var(--vermilion)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Materi Pelatihan</span>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BookOpen size={17} />
               </div>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              14 Bab Modul
+              Kurikulum N5 - N4
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              Kurikulum Minna no Nihongo & SSW
+              Standar JLPT & Tokutei Ginou
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. JADWAL MENGAJAR BERIKUTNYA */}
-      <div
-        className="student-card"
-        style={{
-          borderLeft: '4px solid var(--vermilion)',
-          backgroundColor: 'var(--surface)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--vermilion)', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-              <Clock size={14} />
-              <span>SESI MENGAJAR BERIKUTNYA</span>
-            </div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              Bahasa Jepang N4 Intensif — Angkatan Batch 48
-            </h2>
-          </div>
-
-          <Link
-            to="/teacher/attendance"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 0.85rem',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--vermilion)',
-              color: '#FFFFFF',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textDecoration: 'none'
-            }}
-          >
-            <ClipboardCheck size={14} />
-            <span>Mulai Presensi Sesi</span>
-          </Link>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-            gap: '0.85rem',
-            padding: '1rem',
-            backgroundColor: 'var(--surface-muted)',
-            borderRadius: 'var(--radius-sm)'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Waktu Kelas:</div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Hari Ini, 08:30 - 11:30 WITA</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Ruang Kelas:</div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Ruang Sakura 01 (Lantai 2)</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Materi Pembahasan:</div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Bab 18: Bentuk Kamus (Jisho-kei) & Kaiwa</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Peserta Terdaftar:</div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>20 Siswa Aktif</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. KELAS AKTIF BINAAN */}
+      {/* 3. DAFTAR KELAS AKTIF YANG DIAMPU */}
       <div className="student-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div>
@@ -240,62 +267,53 @@ export default function TeacherDashboardPage() {
           </Link>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1rem' }}>
-          {classes.length > 0 ? (
-            classes.slice(0, 3).map((cls) => (
+        {classes.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Belum ada kelas yang ditugaskan ke akun Pengajar Anda.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '1rem' }}>
+            {classes.map((cls) => (
               <div
                 key={cls.id}
                 style={{
                   padding: '1.1rem',
-                  backgroundColor: 'var(--surface-muted)',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
+                  backgroundColor: 'var(--surface-muted)'
                 }}
               >
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--ochre, #B45309)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                    {cls.programTitle}
-                  </div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                    {cls.className}
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                    Jadwal: {cls.schedule} • {cls.room}
-                  </div>
+                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '0.35rem' }}>
+                  {cls.class_name || cls.name}
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  <span>Kapasitas: <strong style={{ color: 'var(--text-primary)' }}>{cls.enrolledCount}/{cls.quota}</strong></span>
-                  <Link to="/teacher/attendance" style={{ color: 'var(--vermilion)', fontWeight: 700, textDecoration: 'none' }}>
-                    Presensi &rarr;
-                  </Link>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                  {cls.schedule || 'Jadwal Intensif'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.5rem' }}>
+                  <span>Ruang: {cls.location || 'Ruang Sakura'}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--emerald)' }}>
+                    {cls.current_students || cls.enrolledCount || 0} Siswa Enrolled
+                  </span>
                 </div>
               </div>
-            ))
-          ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Memuat daftar kelas aktif...
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* 5. INFORMASI SISWA BINAAN */}
+      {/* 4. DAFTAR SISWA BINAAN AKTIF */}
       <div className="student-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              Informasi & Perkembangan Siswa Binaan
+              Daftar Siswa Binaan
             </h2>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
-              Catatan kompetensi, tingkat presensi harian, dan target kelulusan ujian bahasa
+              Siswa aktif yang terdaftar dalam kelas binaan Anda
             </p>
           </div>
           <Link to="/teacher/students" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--ochre, #B45309)', textDecoration: 'none' }}>
-            Data Siswa Lengkap &rarr;
+            Buka Daftar Lengkap &rarr;
           </Link>
         </div>
 
@@ -305,100 +323,44 @@ export default function TeacherDashboardPage() {
               <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}>
                 <th style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Nama Siswa</th>
                 <th style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Kelas Angkatan</th>
-                <th style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Target Ujian</th>
-                <th style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Tingkat Hadir</th>
                 <th style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.78rem', textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {studentHighlights.map((st) => (
-                <tr key={st.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {st.name}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
-                    {st.className}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--ochre, #B45309)', fontWeight: 600 }}>
-                    {st.target}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--emerald)', fontWeight: 700 }}>
-                    {st.attendanceRate}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.6rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.74rem',
-                        fontWeight: 700,
-                        backgroundColor: st.status === 'Aktif' ? 'var(--emerald-subtle)' : 'var(--ochre-subtle)',
-                        color: st.status === 'Aktif' ? 'var(--emerald)' : 'var(--ochre, #B45309)'
-                      }}
-                    >
-                      {st.status}
-                    </span>
+              {students.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Belum ada data siswa terdaftar di kelas binaan Anda.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                students.slice(0, 6).map((st) => (
+                  <tr key={st.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {st.name || st.studentName}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                      {st.className || st.class_name || 'Kelas Terdaftar'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                      <span
+                        style={{
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          backgroundColor: 'var(--emerald-subtle)',
+                          color: 'var(--emerald)'
+                        }}
+                      >
+                        Aktif Enrolled
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* 6. PEMBERITAHUAN AKADEMIK PENGAJAR */}
-      <div className="student-card" style={{ borderLeft: '4px solid var(--ochre, #B45309)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
-          <Megaphone size={18} color="var(--ochre, #B45309)" />
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-            Pemberitahuan & Pengumuman Akademik Sensei
-          </h2>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          <div
-            style={{
-              padding: '0.85rem 1rem',
-              backgroundColor: 'var(--surface-muted)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.75rem'
-            }}
-          >
-            <CheckCircle2 size={16} color="var(--emerald)" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Simulasi Ujian Mock JLPT N4 Dijadwalkan Sabtu Pagi
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Pengajar diharapkan menyiapkan lembar choukai audio di Lab Bahasa Lantai 1 paling lambat Jumat pukul 15.00 WITA.
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '0.85rem 1rem',
-              backgroundColor: 'var(--surface-muted)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.75rem'
-            }}
-          >
-            <AlertCircle size={16} color="var(--ochre, #B45309)" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Input Nilai Evaluasi Kemampuan Kanji & Kaiwa Pekan Ke-4
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Mohon segera mencatat skor formatif per sesi kelas agar kartu perkembangan belajar siswa dapat dicetak.
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

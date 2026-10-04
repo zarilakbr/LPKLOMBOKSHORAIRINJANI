@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X, Check, GraduationCap, Calendar, ClipboardCheck, BookOpen, Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent } from '../../context/RealtimeContext';
+
+const getTeacherNotificationIcon = (type) => {
+  switch (type) {
+    case 'kelas':
+      return GraduationCap;
+    case 'jadwal':
+      return Calendar;
+    case 'presensi':
+    case 'absensi':
+      return ClipboardCheck;
+    case 'materi':
+      return BookOpen;
+    case 'pengumuman':
+    default:
+      return Megaphone;
+  }
+};
 
 const initialTeacherNotifications = [
   { id: 1, type: 'kelas', icon: GraduationCap, title: 'Penugasan Angkatan Baru', message: 'Sensei ditugaskan untuk mengampu kelas Batch 50 - Modul Bunpou N4.', isRead: false, createdAt: '20 menit yang lalu', link: '/teacher/classes' },
@@ -13,9 +32,50 @@ const initialTeacherNotifications = [
 export default function TeacherNotificationPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState(initialTeacherNotifications);
+  const [unreadCount, setUnreadCount] = useState(0);
   const panelRef = useRef(null);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const fetchNotifications = async () => {
+    try {
+      const res = await apiClient.get('/teacher/notifications');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const formatted = res.data.data.map((item) => ({
+          id: item.id,
+          type: item.type,
+          icon: getTeacherNotificationIcon(item.type),
+          title: item.title,
+          message: item.message,
+          isRead: item.isRead || item.is_read,
+          createdAt: item.createdAtFormatted || 'Baru saja',
+          link: item.actionUrl || item.action_url || '/teacher/dashboard'
+        }));
+        setNotifications(formatted);
+        setUnreadCount(typeof res.data.unreadCount === 'number' ? res.data.unreadCount : formatted.filter(n => !n.isRead).length);
+      }
+    } catch (err) {
+      setUnreadCount(initialTeacherNotifications.filter(n => !n.isRead).length);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  useRealtimeEvent('notification.created', (newNotif) => {
+    const formatted = {
+      id: newNotif.id || Date.now(),
+      type: newNotif.type || 'pengumuman',
+      icon: getTeacherNotificationIcon(newNotif.type),
+      title: newNotif.title || 'Pemberitahuan Baru',
+      message: newNotif.message || '',
+      isRead: false,
+      createdAt: 'Baru saja',
+      link: newNotif.action_url || newNotif.actionUrl || '/teacher/dashboard'
+    };
+
+    setNotifications((prev) => [formatted, ...prev.filter(n => n.id !== formatted.id)]);
+    setUnreadCount((prev) => prev + 1);
+  });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,11 +88,19 @@ export default function TeacherNotificationPanel() {
   }, []);
 
   const handleMarkAsRead = (id) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    apiClient.post(`/teacher/notifications/${id}/read`).catch(() => {});
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+
+    apiClient.post('/teacher/notifications/read-all').catch(() => {});
   };
 
   const handleNotificationClick = (id) => {
@@ -68,7 +136,7 @@ export default function TeacherNotificationPanel() {
               position: 'absolute',
               top: '-4px',
               right: '-4px',
-              backgroundColor: 'var(--ochre, #B45309)',
+              backgroundColor: 'var(--vermilion)',
               color: '#FFFFFF',
               fontSize: '0.62rem',
               fontWeight: 800,
@@ -116,15 +184,15 @@ export default function TeacherNotificationPanel() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Bell size={16} color="var(--ochre)" />
+              <Bell size={16} color="var(--vermilion)" />
               <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Pemberitahuan Sensei
+                Pemberitahuan Pengajar
               </span>
               {unreadCount > 0 && (
                 <span
                   style={{
-                    backgroundColor: 'var(--ochre-subtle)',
-                    color: 'var(--ochre)',
+                    backgroundColor: 'var(--vermilion-subtle)',
+                    color: 'var(--vermilion)',
                     fontSize: '0.7rem',
                     fontWeight: 700,
                     padding: '0.1rem 0.45rem',
@@ -143,7 +211,7 @@ export default function TeacherNotificationPanel() {
                 style={{
                   fontSize: '0.72rem',
                   fontWeight: 600,
-                  color: 'var(--ochre)',
+                  color: 'var(--vermilion)',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -171,7 +239,7 @@ export default function TeacherNotificationPanel() {
                     style={{
                       padding: '0.75rem 1rem',
                       borderBottom: '1px solid var(--border-subtle)',
-                      backgroundColor: item.isRead ? 'transparent' : 'var(--surface-muted, rgba(180, 83, 9, 0.05))',
+                      backgroundColor: item.isRead ? 'transparent' : 'var(--surface-muted, rgba(197, 48, 48, 0.04))',
                       display: 'flex',
                       gap: '0.65rem',
                       cursor: 'pointer',
@@ -183,8 +251,8 @@ export default function TeacherNotificationPanel() {
                         width: '32px',
                         height: '32px',
                         borderRadius: 'var(--radius-sm)',
-                        backgroundColor: item.isRead ? 'var(--border-subtle)' : 'var(--ochre-subtle)',
-                        color: item.isRead ? 'var(--text-muted)' : 'var(--ochre)',
+                        backgroundColor: item.isRead ? 'var(--border-subtle)' : 'var(--vermilion-subtle)',
+                        color: item.isRead ? 'var(--text-muted)' : 'var(--vermilion)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -228,7 +296,7 @@ export default function TeacherNotificationPanel() {
                             style={{
                               fontSize: '0.72rem',
                               fontWeight: 700,
-                              color: 'var(--ochre)',
+                              color: 'var(--vermilion)',
                               textDecoration: 'none'
                             }}
                           >

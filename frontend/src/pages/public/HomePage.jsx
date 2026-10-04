@@ -108,7 +108,7 @@ export default function HomePage() {
           <SectionHeading
             jpSubtitle="施設紹介"
             categoryTag="LINGKUNGAN BELAJAR KONDUSIF"
-            title="Infrastruktur Kampus & Fasilitas Simulasi Nyata"
+            title="Infrastruktur Lembaga & Fasilitas Simulasi Nyata"
             subtitle="Fasilitas dirancang menyerupai standar tempat kerja di Jepang untuk membentuk kesiapan fisik dan mental."
             action={
               <Button to="/facilities" variant="outline" size="sm" icon={Building2} iconPosition="left">

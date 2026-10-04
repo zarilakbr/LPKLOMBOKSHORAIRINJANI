@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -13,6 +14,8 @@ export default function AdminArticlesPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -25,18 +28,31 @@ export default function AdminArticlesPage() {
     tags: 'SSW, Jepang, Karier'
   });
 
-  const loadData = () => {
-    articleService.getAll().then((data) => setArticles(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await articleService.getAll();
+      setArticles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load articles:', err);
+      setError('Gagal memuat data artikel.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = articles.filter((a) => {
-    const matchSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.author.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'ALL' || a.category === filterCat;
+  const filtered = (articles || []).filter((a) => {
+    const title = String(a?.title ?? '').toLowerCase();
+    const author = String(a?.author ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    const matchSearch = title.includes(searchTerm) || author.includes(searchTerm);
+    const matchCat = filterCat === 'ALL' || a?.category === filterCat;
     return matchSearch && matchCat;
   });
 
@@ -119,6 +135,22 @@ export default function AdminArticlesPage() {
 
   return (
     <div>
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}

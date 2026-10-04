@@ -1,67 +1,170 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileCheck, UploadCloud, X, File as FileIcon, Image as ImageIcon, AlertCircle, FileText, CheckCircle } from 'lucide-react';
 import StatusBadge from '../../components/admin/StatusBadge';
-
-const mockHistory = [
-  { id: 1, date: '2026-10-01', type: 'Sakit', period: '01 Okt 2026', status: 'PENDING', proof: 'surat-sakit.jpg' },
-  { id: 2, date: '2026-09-28', type: 'Izin', period: '28 Sep 2026', status: 'APPROVED', proof: '-' },
-  { id: 3, date: '2026-09-15', type: 'Keperluan Keluarga', period: '15 Sep - 16 Sep 2026', status: 'REJECTED', proof: '-', reason: 'Alasan tidak spesifik' }
-];
+import { apiClient } from '../../services/apiClient';
+import { useRealtimeEvent, useRealtime } from '../../context/RealtimeContext';
 
 export default function StudentPermissionPage() {
+  const [classes, setClasses] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [formData, setFormData] = useState({
-    type: 'Sakit',
-    date: '',
-    class: 'Bahasa Jepang N4 - Batch A',
+    type: 'sakit',
+    class_id: '',
+    start_date: '',
+    end_date: '',
     reason: '',
     otherType: ''
   });
-  
+
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
-  const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error'
-  
+  const [submitting, setSubmitting] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState(null);
+
+  const { onReconnect } = useRealtime();
+
+  // Load real enrolled classes and existing permission requests
+  const loadPermissionData = useCallback(async () => {
+    try {
+      const [classRes, permRes] = await Promise.allSettled([
+        apiClient.get('/student/classes'),
+        apiClient.get('/student/permissions')
+      ]);
+
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success) {
+        const cls = classRes.value.data.data || [];
+        setClasses(cls);
+        if (cls.length > 0 && !formData.class_id) {
+          setFormData((prev) => ({ ...prev, class_id: cls[0].id }));
+        }
+      }
+
+      if (permRes.status === 'fulfilled' && permRes.value.data?.success) {
+        setPermissions(permRes.value.data.data || []);
+      }
+    } catch (err) {
+      console.warn('Failed to load permission data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [formData.class_id]);
+
+  useEffect(() => {
+    loadPermissionData();
+  }, [loadPermissionData]);
+
+  // Auto-resync when connection is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      loadPermissionData();
+    });
+  }, [onReconnect, loadPermissionData]);
+
+  // REALTIME EVENT: Permission Reviewed by Teacher/Admin
+  useRealtimeEvent('permission.reviewed', (data) => {
+    setPermissions((prev) =>
+      prev.map((item) =>
+        item.id === data.id
+          ? {
+              ...item,
+              status: data.status,
+              review_notes: data.reviewNotes || data.review_notes,
+              reviewed_at: data.reviewedAt
+            }
+          : item
+      )
+    );
+
+    setSubmitFeedback({
+      type: 'info',
+      message: `Status pengajuan izin Anda telah diperbarui menjadi ${data.status.toUpperCase()} oleh Pengajar.`
+    });
+  });
+
   const handleFileChange = (e) => {
     setFileError('');
     const selectedFile = e.target.files[0];
-    
     if (!selectedFile) return;
-    
-    // Check size (Max 5MB)
+
     if (selectedFile.size > 5 * 1024 * 1024) {
       setFileError('Ukuran file melebihi 5 MB.');
       return;
     }
-    
-    // Check type
+
     const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(selectedFile.type)) {
       setFileError('Format file tidak didukung. Gunakan JPG, PNG, atau PDF.');
       return;
     }
-    
+
     setFile(selectedFile);
   };
-  
-  const handleSubmit = (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Validate if Sakit but no file
-    if (formData.type === 'Sakit' && !file) {
-      setFileError('Bukti sakit berupa surat keterangan dianjurkan/diperlukan.');
-      // Wait, user said: "Jika Jenis Izin = Sakit, Bukti sangat dianjurkan... Jangan mengklaim dokumen tertentu wajib secara hukum. UI harus menampilkan...". 
-      // Let's just allow it but maybe warn, or we can just proceed. For now, we proceed to mock success.
+    if (!formData.class_id) {
+      setSubmitFeedback({ type: 'error', message: 'Silakan pilih kelas pelatihan aktif.' });
+      return;
     }
-    
-    // Mock simulation
-    setTimeout(() => {
-      setSubmitStatus('success');
-      // Reset form
-      setFormData({ type: 'Sakit', date: '', class: 'Bahasa Jepang N4 - Batch A', reason: '', otherType: '' });
-      setFile(null);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSubmitStatus(null), 3000);
-    }, 1000);
+
+    setSubmitting(true);
+    setSubmitFeedback(null);
+
+    try {
+      const payload = {
+        class_id: parseInt(formData.class_id, 10),
+        type: formData.type === 'Lainnya' ? (formData.otherType || 'lainnya') : formData.type.toLowerCase(),
+        start_date: formData.start_date,
+        end_date: formData.end_date || formData.start_date,
+        reason: formData.reason
+      };
+
+      const res = await apiClient.post('/student/permissions', payload);
+
+      if (res.data?.success && res.data.data) {
+        const createdPerm = res.data.data;
+
+        // If file attachment was provided, upload it
+        if (file) {
+          const fileData = new FormData();
+          fileData.append('file', file);
+          fileData.append('attachment', file);
+          fileData.append('description', 'Dokumen bukti izin siswa');
+
+          try {
+            await apiClient.post(`/student/permissions/${createdPerm.id}/attachments`, fileData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          } catch (uploadErr) {
+            console.warn('Attachment upload failed, but permission was created:', uploadErr);
+          }
+        }
+
+        setPermissions((prev) => [createdPerm, ...prev]);
+        setSubmitFeedback({
+          type: 'success',
+          message: 'Pengajuan izin berhasil dikirimkan ke Sensei/Pengajar kelas Anda.'
+        });
+
+        // Reset form
+        setFormData({
+          type: 'sakit',
+          class_id: classes[0]?.id || '',
+          start_date: '',
+          end_date: '',
+          reason: '',
+          otherType: ''
+        });
+        setFile(null);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Gagal mengajukan permohonan izin.';
+      setSubmitFeedback({ type: 'error', message: msg });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -71,46 +174,41 @@ export default function StudentPermissionPage() {
           Izin & Ketidakhadiran
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Ajukan izin ketidakhadiran langsung melalui aplikasi.
+          Ajukan permohonan dispensasi / surat izin ketidakhadiran langsung ke pengajar kelas Anda.
         </p>
       </div>
-      
-      {/* Development Banner */}
-      <div style={{
-        backgroundColor: 'var(--ochre-subtle)',
-        border: '1px solid var(--ochre-border)',
-        padding: '0.75rem 1rem',
-        borderRadius: 'var(--radius-sm)',
-        marginBottom: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        fontSize: '0.85rem',
-        color: 'var(--ochre)'
-      }}>
-        <AlertCircle size={16} style={{ flexShrink: 0 }} />
-        <span>Data dan pengajuan saat ini berjalan pada mode <strong>Development (Mock)</strong>. Form ini belum tersambung ke backend.</span>
-      </div>
-      
-      {/* Notification Toast (Mock) */}
-      {submitStatus === 'success' && (
-        <div style={{
-          backgroundColor: 'var(--emerald-subtle)',
-          border: '1px solid var(--emerald-border)',
-          padding: '1rem',
-          borderRadius: 'var(--radius-sm)',
-          marginBottom: '2rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          color: 'var(--emerald)',
-          animation: 'navFadeIn 0.3s ease-out'
-        }}>
-          <CheckCircle size={20} />
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: '0.2rem' }}>Pengajuan Izin Berhasil</div>
-            <div style={{ fontSize: '0.85rem' }}>Pengajuan izin Anda sedang ditinjau oleh Admin/Pengajar.</div>
+
+      {submitFeedback && (
+        <div
+          style={{
+            backgroundColor: submitFeedback.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'var(--emerald-subtle)',
+            border: `1px solid ${submitFeedback.type === 'error' ? 'var(--vermilion-border)' : 'var(--emerald-border)'}`,
+            padding: '1rem',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '2rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            color: submitFeedback.type === 'error' ? 'var(--vermilion)' : 'var(--emerald)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {submitFeedback.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle size={20} />}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: '0.2rem' }}>
+                {submitFeedback.type === 'error' ? 'Gagal Mengajukan' : 'Pengajuan Berhasil Diproses'}
+              </div>
+              <div style={{ fontSize: '0.85rem' }}>{submitFeedback.message}</div>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setSubmitFeedback(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -121,30 +219,29 @@ export default function StudentPermissionPage() {
             <FileCheck size={20} style={{ color: 'var(--vermilion)' }} />
             <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Form Pengajuan Izin</h2>
           </div>
-          
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Jenis Izin</label>
-              <select 
-                className="form-select" 
+              <select
+                className="form-select"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 required
               >
-                <option value="Sakit">Sakit</option>
-                <option value="Izin">Izin</option>
-                <option value="Keperluan Penting">Keperluan Penting</option>
-                <option value="Keperluan Keluarga">Keperluan Keluarga</option>
+                <option value="sakit">Sakit</option>
+                <option value="izin">Izin Pribadi</option>
+                <option value="keperluan_keluarga">Keperluan Keluarga</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
-            
+
             {formData.type === 'Lainnya' && (
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Sebutkan Jenis Izin</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <input
+                  type="text"
+                  className="form-input"
                   placeholder="Ketik jenis izin..."
                   value={formData.otherType}
                   onChange={(e) => setFormData({ ...formData, otherType: e.target.value })}
@@ -152,51 +249,70 @@ export default function StudentPermissionPage() {
                 />
               </div>
             )}
-            
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Kelas Pelatihan</label>
+              <select
+                className="form-select"
+                value={formData.class_id}
+                onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                required
+              >
+                {classes.length === 0 ? (
+                  <option value="">Tidak ada kelas aktif</option>
+                ) : (
+                  classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.class_name || c.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
             <div className="grid-2" style={{ gap: '1.25rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Tanggal Mulai</label>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                   required
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Jadwal Kelas</label>
-                <select 
-                  className="form-select" 
-                  value={formData.class}
-                  onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-                  required
-                >
-                  <option value="Bahasa Jepang N4 - Batch A">Bahasa Jepang N4 - Batch A</option>
-                  <option value="Bahasa Jepang N5 - Batch B">Bahasa Jepang N5 - Batch B</option>
-                </select>
+                <label className="form-label">Tanggal Berakhir</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.end_date}
+                  min={formData.start_date}
+                  placeholder="Opsional jika 1 hari"
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                />
               </div>
             </div>
-            
+
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Alasan / Keterangan Tambahan</label>
-              <textarea 
-                className="form-textarea" 
-                placeholder="Jelaskan alasan izin Anda..."
+              <label className="form-label">Alasan / Keterangan Lengkap</label>
+              <textarea
+                className="form-textarea"
+                placeholder="Jelaskan alasan izin Anda secara rinci..."
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 required
-              ></textarea>
+              />
             </div>
-            
+
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">
-                Bukti Pendukung {formData.type === 'Sakit' && <span style={{ color: 'var(--vermilion)', fontWeight: 'normal', fontSize: '0.8rem', marginLeft: '0.5rem' }}>(Sangat dianjurkan untuk Sakit)</span>}
+                Bukti Pendukung {formData.type === 'sakit' && <span style={{ color: 'var(--vermilion)', fontWeight: 'normal', fontSize: '0.8rem', marginLeft: '0.5rem' }}>(Surat dokter / bukti foto)</span>}
               </label>
-              
+
               {!file ? (
                 <div>
-                  <label 
+                  <label
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -211,16 +327,14 @@ export default function StudentPermissionPage() {
                       textAlign: 'center',
                       transition: 'all 0.2s ease'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--vermilion)'}
-                    onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
                   >
                     <UploadCloud size={28} style={{ color: 'var(--text-muted)' }} />
                     <div>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Klik untuk memilih file</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Format JPG, PNG, atau PDF. Maksimal 5 MB.</div>
                     </div>
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/jpeg, image/png, application/pdf"
                       onChange={handleFileChange}
                       style={{ display: 'none' }}
@@ -249,10 +363,10 @@ export default function StudentPermissionPage() {
                       </div>
                     </div>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setFile(null)}
-                    style={{ padding: '0.4rem', color: 'var(--text-muted)', borderRadius: '50%' }}
+                    style={{ padding: '0.4rem', color: 'var(--text-muted)', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer' }}
                     title="Hapus File"
                   >
                     <X size={18} />
@@ -260,53 +374,65 @@ export default function StudentPermissionPage() {
                 </div>
               )}
             </div>
-            
-            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
-              Ajukan Izin
+
+            <button type="submit" className="btn btn-primary" disabled={submitting || classes.length === 0} style={{ marginTop: '0.5rem' }}>
+              {submitting ? 'Mengirim Pengajuan...' : 'Ajukan Izin'}
             </button>
           </form>
         </div>
-        
+
         {/* Riwayat Pengajuan Izin */}
         <div className="card-editorial" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
             <FileText size={20} style={{ color: 'var(--text-primary)' }} />
             <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Riwayat Pengajuan</h2>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {mockHistory.map(item => (
-              <div key={item.id} style={{
-                padding: '1rem',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-canvas)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>{item.type}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Periode: {item.period}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Diajukan: {item.date}</div>
-                  </div>
-                  <StatusBadge status={item.status} />
-                </div>
-                
-                {item.status === 'REJECTED' && item.reason && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--vermilion)', backgroundColor: 'var(--vermilion-subtle)', padding: '0.5rem', borderRadius: '4px', marginTop: '0.25rem' }}>
-                    <strong>Ditolak:</strong> {item.reason}
-                  </div>
-                )}
-                
-                {item.proof !== '-' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
-                    <ImageIcon size={12} /> Bukti Terlampir
-                  </div>
-                )}
+            {permissions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Belum ada permohonan izin yang diajukan.
               </div>
-            ))}
+            ) : (
+              permissions.map((item) => (
+                <div key={item.id} style={{
+                  padding: '1rem',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-canvas)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem', textTransform: 'capitalize' }}>
+                        {item.type}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Periode: {item.start_date || item.startDate} {item.end_date && item.end_date !== item.start_date ? `s/d ${item.end_date}` : ''}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Alasan: {item.reason}
+                      </div>
+                    </div>
+                    <StatusBadge status={(item.status || 'PENDING').toUpperCase()} />
+                  </div>
+
+                  {(item.status === 'REJECTED' || item.status === 'rejected') && (item.review_notes || item.reviewNotes) && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--vermilion)', backgroundColor: 'var(--vermilion-subtle)', padding: '0.5rem', borderRadius: '4px', marginTop: '0.25rem' }}>
+                      <strong>Catatan Pengajar:</strong> {item.review_notes || item.reviewNotes}
+                    </div>
+                  )}
+
+                  {(item.status === 'APPROVED' || item.status === 'approved') && (item.review_notes || item.reviewNotes) && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--emerald)', backgroundColor: 'var(--emerald-subtle)', padding: '0.5rem', borderRadius: '4px', marginTop: '0.25rem' }}>
+                      <strong>Catatan Pengajar:</strong> {item.review_notes || item.reviewNotes}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -33,7 +33,7 @@ export default function FacilitiesPage() {
         <div className="container">
           <SectionHeading
             jpSubtitle="施設環境"
-            categoryTag="SARANA & PRASARANA KAMPUS"
+            categoryTag="SARANA & PRASARANA LEMBAGA"
             title="Standar Fasilitas Terpadu untuk Kesiapan Belajar & Keterampilan Kerja"
             subtitle="Kami berinvestasi pada sarana simulator kerja dan lingkungan disiplin untuk menghadirkan atmosfer nyata tempat kerja Jepang di Indonesia."
           />
@@ -73,8 +73,8 @@ export default function FacilitiesPage() {
       </section>
 
       <CTASection
-        title={`Ingin Mengunjungi Kampus ${BRAND.name} Secara Langsung?`}
-        subtitle="Jadwalkan kunjungan campus tour dan observasi kelas langsung bersama konsultan kami di Mataram, Nusa Tenggara Barat."
+        title={`Ingin Mengunjungi Lembaga ${BRAND.name} Secara Langsung?`}
+        subtitle="Jadwalkan kunjungan observasi kelas langsung bersama konsultan kami di Mataram, Nusa Tenggara Barat."
       />
     </div>
   );

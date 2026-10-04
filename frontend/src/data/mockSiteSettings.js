@@ -26,12 +26,7 @@ export const mockSiteSettings = {
     titleHighlight: "Menuju Jepang.",
     description: "Belajar Bahasa Jepang dengan kurikulum terarah, pendampingan sensei berpengalaman, dan pembekalan terpadu untuk membangun langkah karier impianmu di Negeri Sakura bersama LPK Lombok Shorai Rinjani.",
     primaryCtaText: "Jelajahi Program",
-    secondaryCtaText: "Konsultasi Gratis via WhatsApp"
+    secondaryCtaText: "Hubungi LPK"
   },
-  stats: [
-    { value: "1.250+", label: "Alumni Terbina", sublabel: "Sejak Tahun 2020" },
-    { value: "98.2%", label: "Tingkat Kelulusan", sublabel: "Ujian JFT-Basic & N4" },
-    { value: "45+", label: "Mitra Perusahaan", sublabel: "Di Berbagai Prefektur Jepang" },
-    { value: "100%", label: "Sensei Bersertifikat", sublabel: "N1/N2 & Native Speaker" }
-  ]
+  stats: []
 };

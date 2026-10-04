@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
@@ -13,6 +14,8 @@ export default function AdminFaqPage() {
   const [modalMode, setModalMode] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     question: '',
@@ -22,18 +25,31 @@ export default function AdminFaqPage() {
     status: 'ACTIVE'
   });
 
-  const loadData = () => {
-    faqService.getAll().then((data) => setFaqs(data));
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await faqService.getAll();
+      setFaqs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load faqs:', err);
+      setError('Gagal memuat data FAQ.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filtered = faqs.filter((f) => {
-    const matchSearch = f.question.toLowerCase().includes(search.toLowerCase()) ||
-      f.answer.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'ALL' || f.category === filterCat;
+  const filtered = (faqs || []).filter((f) => {
+    const question = String(f?.question ?? '').toLowerCase();
+    const answer = String(f?.answer ?? '').toLowerCase();
+    const searchTerm = String(search ?? '').toLowerCase();
+
+    const matchSearch = question.includes(searchTerm) || answer.includes(searchTerm);
+    const matchCat = filterCat === 'ALL' || f?.category === filterCat;
     return matchSearch && matchCat;
   });
 
@@ -102,6 +118,22 @@ export default function AdminFaqPage() {
 
   return (
     <div>
+      {error && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#EF4444',
+          border: '1px solid rgba(239, 68, 68, 0.25)'
+        }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '0.875rem' }}>{error}</span>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={filtered}

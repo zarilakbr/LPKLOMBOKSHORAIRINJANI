@@ -16,7 +16,18 @@ class RegistrationService
      */
     public function createRegistration(array $data): Registration
     {
-        return Registration::create($data);
+        $registration = Registration::create($data);
+
+        // Realtime Event & Admin Notification
+        event(new \App\Events\RegistrationCreated($registration->load(['user', 'program'])));
+        RealtimeNotificationService::notifyAdmins(
+            'pendaftaran',
+            'Pendaftaran Baru Masuk',
+            "Pendaftaran baru atas nama {$registration->full_name} untuk program {$registration->program?->title}.",
+            '/admin/registrations'
+        );
+
+        return $registration;
     }
 
     /**

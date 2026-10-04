@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   BookOpen,
@@ -11,12 +11,17 @@ import {
   Images,
   Building2,
   CircleHelp,
-  ShieldCheck,
   Settings,
   History,
   LogOut,
   X,
-  Globe
+  Globe,
+  BookMarked,
+  Calendar,
+  UserCheck,
+  ClipboardCheck,
+  FileText,
+  Bell
 } from 'lucide-react';
 import { authService } from '../../services/dataService';
 import { BRAND } from '../../config/brand';
@@ -24,6 +29,7 @@ import { useLanguage, LANGUAGES } from '../../context/LanguageContext';
 
 export default function AdminSidebar({ mobileOpen, onCloseMobile }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = authService.getCurrentUser();
   const { language, setLanguage } = useLanguage();
 
@@ -33,21 +39,76 @@ export default function AdminSidebar({ mobileOpen, onCloseMobile }) {
     navigate('/admin/login');
   };
 
-  const navItems = [
-    { label: 'Dashboard', to: '/admin/dashboard', icon: LayoutDashboard },
-    { label: 'Kelola Program', to: '/admin/programs', icon: BookOpen },
-    { label: 'Jadwal Kelas', to: '/admin/classes', icon: GraduationCap },
-    { label: 'Peluang Kerja', to: '/admin/opportunities', icon: BriefcaseBusiness },
-    { label: 'Pendaftaran Siswa', to: '/admin/registrations', icon: Users },
-    { label: 'Testimoni Alumni', to: '/admin/testimonials', icon: MessageSquareQuote },
-    { label: 'Artikel & Berita', to: '/admin/articles', icon: Newspaper },
-    { label: 'Galeri Foto', to: '/admin/gallery', icon: Images },
-    { label: 'Fasilitas Kampus', to: '/admin/facilities', icon: Building2 },
-    { label: 'Manajemen FAQ', to: '/admin/faqs', icon: CircleHelp },
-    { label: 'Pengguna & Hak Akses', to: '/admin/users', icon: ShieldCheck },
-    { label: 'Pengaturan Lembaga', to: '/admin/settings', icon: Settings },
-    { label: 'Log Aktivitas Sistem', to: '/admin/activity-logs', icon: History }
+  const navSections = [
+    {
+      title: null,
+      items: [
+        { label: 'Dashboard', to: '/admin/dashboard', icon: LayoutDashboard }
+      ]
+    },
+    {
+      title: 'AKADEMIK',
+      items: [
+        { label: 'Program', to: '/admin/programs', icon: BookOpen },
+        { label: 'Kelas', to: '/admin/classes', icon: GraduationCap },
+        { label: 'Enrollment', to: '/admin/enrollments', icon: UserCheck },
+        { label: 'Materi', to: '/admin/materials', icon: BookMarked },
+        { label: 'Jadwal', to: '/admin/schedules', icon: Calendar },
+        { label: 'Absensi', to: '/admin/attendance', icon: ClipboardCheck }
+      ]
+    },
+    {
+      title: 'PENGGUNA',
+      items: [
+        { label: 'Pengguna', to: '/admin/users', icon: Users }
+      ]
+    },
+    {
+      title: 'LAYANAN',
+      items: [
+        { label: 'Perizinan', to: '/admin/permissions', icon: FileText },
+        { label: 'Notifikasi', to: '/admin/notifications', icon: Bell }
+      ]
+    },
+    {
+      title: 'KONTEN',
+      items: [
+        { label: 'Artikel', to: '/admin/articles', icon: Newspaper },
+        { label: 'Galeri', to: '/admin/gallery', icon: Images },
+        { label: 'Fasilitas', to: '/admin/facilities', icon: Building2 },
+        { label: 'FAQ', to: '/admin/faqs', icon: CircleHelp },
+        { label: 'Testimonial', to: '/admin/testimonials', icon: MessageSquareQuote },
+        { label: 'Kesempatan', to: '/admin/opportunities', icon: BriefcaseBusiness }
+      ]
+    },
+    {
+      title: 'SISTEM',
+      items: [
+        { label: 'Pengaturan', to: '/admin/settings', icon: Settings },
+        { label: 'Activity Logs', to: '/admin/activity-logs', icon: History }
+      ]
+    }
   ];
+
+  const isItemActive = (to) => {
+    if (to.includes('?')) {
+      const [path, query] = to.split('?');
+      if (location.pathname !== path) return false;
+      const searchParams = new URLSearchParams(location.search);
+      const targetParams = new URLSearchParams(query);
+      for (const [key, val] of targetParams.entries()) {
+        if (searchParams.get(key) !== val) {
+          // If query is tab=all and there's no tab param, consider it default active
+          if (key === 'tab' && val === 'all' && !searchParams.has('tab')) {
+            continue;
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+    return location.pathname === to;
+  };
 
   return (
     <aside className={`admin-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
@@ -93,20 +154,39 @@ export default function AdminSidebar({ mobileOpen, onCloseMobile }) {
 
       {/* Navigation List - Scrolls internally with ZERO narrow scrollbar strip */}
       <nav className="admin-sidebar-nav">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onCloseMobile}
-              className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={18} style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
-            </NavLink>
-          );
-        })}
+        {navSections.map((section, idx) => (
+          <div key={section.title || `section-${idx}`} style={{ marginBottom: '0.65rem' }}>
+            {section.title && (
+              <div
+                style={{
+                  padding: '0.5rem 0.85rem 0.25rem 0.85rem',
+                  fontSize: '0.67rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  color: 'var(--admin-sidebar-text-muted)',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {section.title}
+              </div>
+            )}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const active = isItemActive(item.to);
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={onCloseMobile}
+                  className={`admin-nav-item ${active ? 'active' : ''}`}
+                >
+                  <Icon size={18} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Drawer Utilities & User Footer */}

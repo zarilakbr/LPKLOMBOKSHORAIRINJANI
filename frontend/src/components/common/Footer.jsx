@@ -144,7 +144,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link to="/facilities" style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.9rem' }}>
-                  Fasilitas & Asrama Kampus
+                  Fasilitas & Asrama Lembaga
                 </Link>
               </li>
               <li>
@@ -191,7 +191,7 @@ export default function Footer() {
               </div>
               <div style={{ marginTop: '0.5rem', padding: '0.85rem', backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2E8F0', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-                  Jam Pelayanan Kampus
+                  Jam Pelayanan Lembaga
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-on-dark-muted)' }}>
                   {mockSiteSettings.operatingHours}
