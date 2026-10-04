@@ -3,11 +3,35 @@ import axios from 'axios';
 /**
  * Centralized API Client for Laravel Backend Communication
  */
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' &&
-    import.meta.env &&
-    import.meta.env.VITE_API_URL) ||
-  '/api';
+
+/**
+ * Normalize the API base URL so every request targets Laravel's `/api` prefix.
+ *
+ * - Relative values (e.g. `/api` for local dev proxy) are kept as-is.
+ * - Absolute backend URLs without `/api` (e.g. `https://backend.example.com`)
+ *   get `/api` appended, because all Laravel routes live under `routes/api.php`.
+ * - Trailing slashes are removed to avoid `//auth/login`.
+ */
+export function normalizeApiBaseUrl(rawUrl) {
+  const value = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!value || value === 'undefined' || value === 'null') {
+    return '/api';
+  }
+
+  const withoutTrailingSlash = value.replace(/\/+$/, '');
+
+  if (/^https?:\/\//i.test(withoutTrailingSlash) && !/\/api$/i.test(withoutTrailingSlash)) {
+    return `${withoutTrailingSlash}/api`;
+  }
+
+  return withoutTrailingSlash || '/api';
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(
+  typeof import.meta !== 'undefined' && import.meta.env
+    ? import.meta.env.VITE_API_URL
+    : undefined
+);
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

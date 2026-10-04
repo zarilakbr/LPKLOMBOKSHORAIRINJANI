@@ -967,6 +967,7 @@ export const authService = {
         const message = errorData.message || (errorData.errors ? Object.values(errorData.errors)[0]?.[0] : null) || 'Login gagal. Periksa kembali email dan kata sandi Anda.';
         return Promise.reject(new Error(message));
       }
+      console.error('[auth.login] No response from backend:', apiErr?.code, apiErr?.message, apiErr?.config?.baseURL);
       return Promise.reject(new Error('Server tidak dapat dihubungi. Silakan periksa koneksi internet atau server backend.'));
     }
   },
@@ -1005,6 +1006,7 @@ export const authService = {
         const message = errorData.message || (errorData.errors ? Object.values(errorData.errors)[0]?.[0] : null) || 'Pendaftaran gagal.';
         return Promise.reject(new Error(message));
       }
+      console.error('[auth.register] No response from backend:', apiErr?.code, apiErr?.message, apiErr?.config?.baseURL);
       return Promise.reject(new Error('Server tidak dapat dihubungi. Silakan periksa koneksi internet atau server backend.'));
     }
   },

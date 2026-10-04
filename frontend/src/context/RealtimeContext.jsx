@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { apiClient } from '../services/apiClient';
+import { apiClient, API_BASE_URL } from '../services/apiClient';
 import { getEchoInstance, disconnectEcho } from '../services/reverb';
 
 const RealtimeContext = createContext(null);
@@ -286,7 +286,7 @@ export function RealtimeProvider({ children }) {
     if (!token) return;
 
     try {
-      const apiBase = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '/api';
+      const apiBase = API_BASE_URL;
       // Secure SSE connection without token in URL
       const es = new EventSource(`${apiBase}/realtime/stream`, { withCredentials: true });
       sseRef.current = es;
