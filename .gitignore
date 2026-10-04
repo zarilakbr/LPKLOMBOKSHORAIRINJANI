@@ -1,4 +1,3 @@
-@"
 # Environment / secrets
 .env
 .env.*
@@ -27,4 +26,3 @@ backend/database/database.sqlite
 Thumbs.db
 .vscode/
 .idea/
-"@ | Set-Content -Encoding UTF8 D:\NGODING\LPK\.gitignore
