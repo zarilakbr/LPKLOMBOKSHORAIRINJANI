@@ -65,6 +65,10 @@ if (!$admin) {
 
 echo "Starting Apache web server..."
 
+# Ensure exactly one Apache MPM (mpm_prefork) is enabled to prevent AH00534
+a2dismod mpm_event mpm_worker 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
+
 if [ $# -gt 0 ]; then
     exec "$@"
 else
