@@ -1,6 +1,12 @@
 #!/bin/sh
 set -e
 
+rm -f bootstrap/cache/config.php
+
+if [ -n "$DATABASE_URL" ] && [ "$DB_CONNECTION" != "pgsql" ]; then
+    export DB_CONNECTION=pgsql
+fi
+
 echo "Waiting for PostgreSQL database to be ready..."
 
 MAX_RETRIES=30
