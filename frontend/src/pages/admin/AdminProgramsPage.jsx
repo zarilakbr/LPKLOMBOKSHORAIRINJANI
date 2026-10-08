@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import FormField from '../../components/admin/FormField';
+import PhotoUrlField from '../../components/admin/PhotoUrlField';
 import { programService } from '../../services/dataService';
 
 export default function AdminProgramsPage() {
@@ -24,11 +25,14 @@ export default function AdminProgramsPage() {
     shortDescription: '',
     fullDescription: '',
     priceEstimate: 'Rp 3.500.000',
+    image: '',
     status: 'ACTIVE'
   });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -69,6 +73,7 @@ export default function AdminProgramsPage() {
       shortDescription: '',
       fullDescription: '',
       priceEstimate: 'Rp 3.500.000',
+      image: '',
       status: 'ACTIVE'
     });
     setSelectedItem(null);
@@ -86,6 +91,7 @@ export default function AdminProgramsPage() {
       shortDescription: item.shortDescription,
       fullDescription: item.fullDescription,
       priceEstimate: item.priceEstimate,
+      image: item.image || '',
       status: item.status
     });
     setModalMode('edit');
@@ -98,13 +104,33 @@ export default function AdminProgramsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (modalMode === 'create') {
-      await programService.create(formData);
-    } else if (modalMode === 'edit' && selectedItem) {
-      await programService.update(selectedItem.id, formData);
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      if (modalMode === 'create') {
+        await programService.create(formData);
+        setFeedback({ type: 'success', message: 'Program pelatihan baru berhasil ditambahkan.' });
+      } else if (modalMode === 'edit' && selectedItem) {
+        await programService.update(selectedItem.id, formData);
+        setFeedback({ type: 'success', message: 'Data program pelatihan berhasil diperbarui.' });
+      }
+      setModalMode(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save program:', err);
+      let errMsg = 'Gagal menyimpan program pelatihan.';
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).flat().join(' ');
+        if (validationErrors) errMsg = validationErrors;
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
     }
-    setModalMode(null);
-    loadData();
   };
 
   const handleDeleteConfirm = async () => {
@@ -136,6 +162,23 @@ export default function AdminProgramsPage() {
 
   return (
     <div>
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: feedback.type === 'success' ? '#16A34A' : '#EF4444',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{feedback.message}</span>
+        </div>
+      )}
+
       {error && (
         <div style={{
           padding: '0.75rem 1rem',
@@ -182,11 +225,21 @@ export default function AdminProgramsPage() {
         title={modalMode === 'create' ? 'Tambah Program Pelatihan' : 'Edit Program Pelatihan'}
         footer={
           <>
-            <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
+            <button
+              type="button"
+              onClick={() => setModalMode(null)}
+              className="btn btn-outline btn-sm"
+              disabled={actionLoading}
+            >
               Batal
             </button>
-            <button type="submit" form="program-form" className="btn btn-primary btn-sm">
-              Simpan Data Program
+            <button
+              type="submit"
+              form="program-form"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Menyimpan...' : 'Simpan Data Program'}
             </button>
           </>
         }
@@ -244,6 +297,15 @@ export default function AdminProgramsPage() {
             placeholder="Contoh: Senin - Kamis (08.30 - 12.00 WIB)"
           />
 
+          <PhotoUrlField
+            label="Link Foto Program Pelatihan (Opsional)"
+            value={formData.image || ''}
+            onChange={(val) => setFormData({ ...formData, image: val })}
+            placeholder="https://images.unsplash.com/... atau URL foto lainnya"
+            helpText="Gunakan tautan gambar langsung (URL valid berawalan http:// atau https://, maksimal 255 karakter)."
+            previewHeight="120px"
+          />
+
           <FormField
             label="Deskripsi Singkat"
             type="textarea"
@@ -288,6 +350,17 @@ export default function AdminProgramsPage() {
       >
         {selectedItem && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
+            {selectedItem.image && (
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginBottom: '0.35rem' }}>FOTO REFERENSI</div>
+                <img
+                  src={selectedItem.image}
+                  alt={selectedItem.title}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0' }}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div>
               <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>JUDUL PROGRAM</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0F172A' }}>{selectedItem.title}</div>

@@ -1,32 +1,59 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, CalendarDays, ArrowRight, MessageCircle } from 'lucide-react';
+import { Clock, CalendarDays, ArrowRight, MessageCircle, GraduationCap } from 'lucide-react';
 import Badge from '../common/Badge';
 import { BRAND } from '../../config/brand';
 
 export default function ProgramCard({ program }) {
+  const [imgError, setImgError] = useState(false);
+  const hasImage = Boolean(program.image && !imgError);
   const waUrl = `${BRAND.whatsappUrl}%20mengenai%20program%20${encodeURIComponent(program.title)}`;
 
   return (
     <div className="card-editorial" style={{ height: '100%', padding: 0, overflow: 'hidden' }}>
       {/* Top Image Container */}
-      <div style={{ position: 'relative', height: '210px', overflow: 'hidden' }}>
-        <img
-          src={program.image}
-          alt={program.title}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transition: 'transform 0.4s ease'
-          }}
-          className="program-img-hover"
-        />
+      <div style={{ position: 'relative', height: '210px', overflow: 'hidden', backgroundColor: '#F1F5F9' }}>
+        {hasImage ? (
+          <img
+            src={program.image}
+            alt={program.title}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transition: 'transform 0.4s ease',
+              display: 'block'
+            }}
+            className="program-img-hover"
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+              color: '#94A3B8',
+              gap: '0.5rem'
+            }}
+          >
+            <GraduationCap size={40} color="var(--vermilion, #E11D48)" opacity={0.85} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+              LPK Lombok Shorai Rinjani
+            </span>
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 60%)'
+            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 60%)',
+            pointerEvents: 'none'
           }}
         />
 

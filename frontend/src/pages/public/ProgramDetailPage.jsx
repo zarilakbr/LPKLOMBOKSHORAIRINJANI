@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Clock, CalendarDays, Users, Award, CheckCircle2, ArrowRight, ArrowLeft, BookOpen, ShieldCheck, MessageCircle } from 'lucide-react';
+import { Clock, CalendarDays, Users, Award, CheckCircle2, ArrowRight, ArrowLeft, BookOpen, ShieldCheck, MessageCircle, GraduationCap } from 'lucide-react';
 import { programService } from '../../services/dataService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
@@ -10,9 +10,11 @@ export default function ProgramDetailPage() {
   const { slug } = useParams();
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setImgError(false);
     programService.getBySlug(slug).then((data) => {
       setProgram(data);
       setLoading(false);
@@ -74,12 +76,36 @@ export default function ProgramDetailPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '3.5rem', alignItems: 'flex-start' }} className="program-detail-split">
             {/* Left Column: Full Description & Curriculum Syllabus */}
             <div>
-              <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '2.5rem' }}>
-                <img
-                  src={program.image}
-                  alt={program.title}
-                  style={{ width: '100%', height: '360px', objectFit: 'cover' }}
-                />
+              <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '2.5rem', backgroundColor: '#0F172A' }}>
+                {program.image && !imgError ? (
+                  <img
+                    src={program.image}
+                    alt={program.title}
+                    loading="lazy"
+                    onError={() => setImgError(true)}
+                    style={{ width: '100%', height: '360px', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '240px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                      color: '#94A3B8',
+                      gap: '0.75rem',
+                      padding: '2rem'
+                    }}
+                  >
+                    <GraduationCap size={48} color="var(--vermilion, #E11D48)" opacity={0.85} />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+                      LPK Lombok Shorai Rinjani • Program Pelatihan
+                    </span>
+                  </div>
+                )}
               </div>
 
               <h2 style={{ fontSize: '1.75rem', marginBottom: '1rem' }}>Deskripsi Menyeluruh Program</h2>

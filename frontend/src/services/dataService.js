@@ -41,6 +41,9 @@ export const programService = {
       status: data.status || 'ACTIVE',
       order: data.order || 0
     };
+    if (Object.prototype.hasOwnProperty.call(data, 'image')) {
+      payload.image = data.image && typeof data.image === 'string' && data.image.trim() ? data.image.trim() : null;
+    }
     const res = await apiClient.post('/admin/programs', payload);
     return res.data?.data;
   },
@@ -59,6 +62,9 @@ export const programService = {
       status: data.status || 'ACTIVE',
       order: data.order || 0
     };
+    if (Object.prototype.hasOwnProperty.call(data, 'image')) {
+      payload.image = data.image && typeof data.image === 'string' && data.image.trim() ? data.image.trim() : null;
+    }
     const res = await apiClient.put(`/admin/programs/${id}`, payload);
     return res.data?.data;
   },
