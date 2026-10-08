@@ -89,23 +89,7 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Development Auth Notice */}
-        <div
-          style={{
-            backgroundColor: '#FEF3C7',
-            padding: '0.85rem 1.5rem',
-            borderBottom: '1px solid #FDE68A',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
-            fontSize: '0.78rem',
-            color: '#92400E'
-          }}
-        >
-          <ShieldAlert size={16} style={{ flexShrink: 0 }} />
-          <span>
-            <strong>Mode Pengembangan:</strong> Kredensial telah terisi otomatis untuk pengujian simulasi login.
-          </span>
-        </div>
+
 
         {/* Form Body */}
         <div style={{ padding: '2rem' }}>

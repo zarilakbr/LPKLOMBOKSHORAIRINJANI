@@ -263,7 +263,7 @@ export default function StudentPermissionPage() {
                 ) : (
                   classes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.class_name || c.name}
+                      {c.className || c.class_name || c.name || `Kelas #${c.id}`}
                     </option>
                   ))
                 )}

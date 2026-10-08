@@ -313,7 +313,7 @@ export default function AdminEnrollmentsPage() {
           <option value="ALL">Semua Kelas</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.className || c.name}
+              {c.className || c.name || c.class_name || `Kelas #${c.id}`}
             </option>
           ))}
         </select>
@@ -494,7 +494,7 @@ export default function AdminEnrollmentsPage() {
             onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
             options={classes.map((c) => ({
               value: c.id,
-              label: `${c.className || c.name} (Sensei: ${c.instructor || c.teacher?.name || '-'})`
+              label: `${c.className || c.name || c.class_name || `Kelas #${c.id}`} (Sensei: ${c.instructor || c.teacher?.name || '-'})`
             }))}
           />
 

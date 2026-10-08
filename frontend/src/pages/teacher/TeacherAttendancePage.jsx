@@ -348,11 +348,15 @@ export default function TeacherAttendancePage() {
               fontWeight: 600
             }}
           >
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name || cls.class_name}
-              </option>
-            ))}
+            {classes.length === 0 ? (
+              <option value="">Tidak ada kelas bimbingan</option>
+            ) : (
+              classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.className || cls.name || cls.class_name || `Kelas #${cls.id}`}
+                </option>
+              ))
+            )}
           </select>
         </div>
 

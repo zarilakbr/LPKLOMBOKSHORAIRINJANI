@@ -310,7 +310,7 @@ export default function TeacherSchedulePage() {
           <option value="ALL">Semua Kelas Bimbingan</option>
           {classes.map((cls) => (
             <option key={cls.id} value={cls.id}>
-              {cls.name || cls.class_name}
+              {cls.className || cls.name || cls.class_name || `Kelas #${cls.id}`}
             </option>
           ))}
         </select>
@@ -533,7 +533,7 @@ export default function TeacherSchedulePage() {
                   <option value="">-- Pilih Kelas --</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name || cls.class_name}
+                      {cls.className || cls.name || cls.class_name || `Kelas #${cls.id}`}
                     </option>
                   ))}
                 </select>

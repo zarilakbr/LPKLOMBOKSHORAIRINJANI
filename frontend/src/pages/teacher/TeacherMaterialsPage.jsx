@@ -391,7 +391,7 @@ export default function TeacherMaterialsPage() {
             <option value="ALL">Semua Kelas Saya ({classes.length})</option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {cls.class_name || cls.name}
+                {cls.className || cls.class_name || cls.name || `Kelas #${cls.id}`}
               </option>
             ))}
           </select>
@@ -751,7 +751,7 @@ export default function TeacherMaterialsPage() {
                   <option value="">-- Pilih Kelas --</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.class_name || cls.name} ({cls.program?.title || 'Program'})
+                      {cls.className || cls.class_name || cls.name || `Kelas #${cls.id}`} ({cls.program?.title || 'Program'})
                     </option>
                   ))}
                 </select>

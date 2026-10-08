@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Plus, Copy, Trash2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import FormField from '../../components/admin/FormField';
+import PhotoUrlField from '../../components/admin/PhotoUrlField';
 import { galleryService } from '../../services/dataService';
+
+const defaultGalleryRow = () => ({
+  title: '',
+  category: 'Classroom',
+  description: '',
+  image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80',
+  order: 1,
+  status: 'ACTIVE'
+});
 
 export default function AdminGalleryPage() {
   const [gallery, setGallery] = useState([]);
@@ -19,14 +29,8 @@ export default function AdminGalleryPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  const [formData, setFormData] = useState({
-    title: '',
-    category: 'Classroom',
-    description: '',
-    image: '',
-    order: 1,
-    status: 'ACTIVE'
-  });
+  const [createRows, setCreateRows] = useState([defaultGalleryRow()]);
+  const [formData, setFormData] = useState(defaultGalleryRow());
 
   const loadData = async () => {
     setLoading(true);
@@ -57,16 +61,48 @@ export default function AdminGalleryPage() {
   });
 
   const handleOpenCreate = () => {
-    setFormData({
-      title: '',
-      category: 'Classroom',
-      description: '',
-      image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80',
-      order: gallery.length + 1,
-      status: 'ACTIVE'
-    });
+    setCreateRows([{
+      ...defaultGalleryRow(),
+      order: gallery.length + 1
+    }]);
     setSelectedItem(null);
     setModalMode('create');
+  };
+
+  const handleAddRow = () => {
+    setCreateRows(prev => [
+      ...prev,
+      {
+        ...defaultGalleryRow(),
+        order: gallery.length + prev.length + 1
+      }
+    ]);
+  };
+
+  const handleDuplicateRow = (index) => {
+    setCreateRows(prev => {
+      const source = prev[index];
+      const clone = {
+        ...source,
+        title: source.title ? `${source.title} (Salinan)` : '',
+        order: gallery.length + prev.length + 1
+      };
+      const next = [...prev];
+      next.splice(index + 1, 0, clone);
+      return next;
+    });
+  };
+
+  const handleRemoveRow = (index) => {
+    setCreateRows(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index, field, value) => {
+    setCreateRows(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   const handleOpenEdit = (item) => {
@@ -84,17 +120,33 @@ export default function AdminGalleryPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.title?.trim() || !formData.image?.trim()) {
-      setFeedback({ type: 'error', message: 'Judul dan URL gambar galeri wajib diisi.' });
-      return;
-    }
     setActionLoading(true);
     setFeedback(null);
     try {
       if (modalMode === 'create') {
-        await galleryService.create(formData);
-        setFeedback({ type: 'success', message: 'Foto dokumentasi berhasil ditambahkan ke galeri.' });
+        // Validasi seluruh baris
+        for (let i = 0; i < createRows.length; i++) {
+          const row = createRows[i];
+          if (!row.title?.trim() || !row.image?.trim()) {
+            setFeedback({
+              type: 'error',
+              message: `Baris #${i + 1}: Judul foto dan URL gambar wajib diisi.`
+            });
+            setActionLoading(false);
+            return;
+          }
+        }
+        await Promise.all(createRows.map(row => galleryService.create(row)));
+        setFeedback({
+          type: 'success',
+          message: `Berhasil menambahkan ${createRows.length} foto ke galeri.`
+        });
       } else if (modalMode === 'edit' && selectedItem) {
+        if (!formData.title?.trim() || !formData.image?.trim()) {
+          setFeedback({ type: 'error', message: 'Judul dan URL gambar galeri wajib diisi.' });
+          setActionLoading(false);
+          return;
+        }
         await galleryService.update(selectedItem.id, formData);
         setFeedback({ type: 'success', message: 'Data foto galeri berhasil diperbarui.' });
       }
@@ -133,8 +185,12 @@ export default function AdminGalleryPage() {
       width: '100px',
       render: (row) => (
         <img
-          src={row.image}
+          src={row.image || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80'}
           alt={row.title}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80';
+          }}
           style={{ width: '60px', height: '42px', objectFit: 'cover', borderRadius: '4px' }}
         />
       )
@@ -223,7 +279,7 @@ export default function AdminGalleryPage() {
       <Modal
         isOpen={modalMode === 'create' || modalMode === 'edit'}
         onClose={() => setModalMode(null)}
-        title={modalMode === 'create' ? 'Unggah Dokumentasi Foto' : 'Edit Dokumentasi Foto'}
+        title={modalMode === 'create' ? `Tambah Foto Galeri (${createRows.length} Data)` : 'Edit Dokumentasi Foto'}
         footer={
           <>
             <button
@@ -240,69 +296,196 @@ export default function AdminGalleryPage() {
               className="btn btn-primary btn-sm"
               disabled={actionLoading}
             >
-              {actionLoading ? 'Menyimpan...' : 'Simpan Foto'}
+              {actionLoading
+                ? 'Menyimpan...'
+                : (modalMode === 'create' ? `Simpan Semua Foto (${createRows.length} Data)` : 'Simpan Foto')}
             </button>
           </>
         }
       >
         <form id="gallery-form" onSubmit={handleSave}>
-          <FormField
-            label="Judul Foto"
-            required
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Judul momen kegiatan..."
-          />
+          {modalMode === 'create' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {createRows.map((row, index) => (
+                <div
+                  key={index}
+                  style={{
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid #E2E8F0' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E293B' }}>
+                      Foto #{index + 1}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateRow(index)}
+                        className="btn btn-outline btn-xs"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                        title="Duplikat baris data ini"
+                      >
+                        <Copy size={13} /> Duplikat
+                      </button>
+                      {createRows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(index)}
+                          className="btn btn-outline btn-xs"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: '#EF4444', borderColor: '#FECACA' }}
+                          title="Hapus baris data ini"
+                        >
+                          <Trash2 size={13} /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormField
-              label="Kategori"
-              type="select"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              options={[
-                { value: 'Classroom', label: 'Classroom (Ruang Kelas)' },
-                { value: 'Students', label: 'Students (Siswa)' },
-                { value: 'Activities', label: 'Activities (Aktivitas Praktik)' },
-                { value: 'Facilities', label: 'Facilities (Fasilitas)' },
-                { value: 'Events', label: 'Events (Acara & Ujian)' },
-                { value: 'Japan', label: 'Japan (Pelepasan/Jepang)' }
-              ]}
-            />
-            <FormField
-              label="Nomor Urutan Tampil"
-              type="number"
-              value={formData.order}
-              onChange={(e) => setFormData({ ...formData, order: Number(e.target.value) })}
-            />
-          </div>
+                  <FormField
+                    label="Judul Foto"
+                    required
+                    value={row.title}
+                    onChange={(e) => handleRowChange(index, 'title', e.target.value)}
+                    placeholder="Judul momen kegiatan..."
+                  />
 
-          <FormField
-            label="URL Foto / Gambar"
-            required
-            value={formData.image}
-            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-            placeholder="https://..."
-          />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <FormField
+                      label="Kategori"
+                      type="select"
+                      value={row.category}
+                      onChange={(e) => handleRowChange(index, 'category', e.target.value)}
+                      options={[
+                        { value: 'Classroom', label: 'Classroom (Ruang Kelas)' },
+                        { value: 'Students', label: 'Students (Siswa)' },
+                        { value: 'Activities', label: 'Activities (Aktivitas Praktik)' },
+                        { value: 'Facilities', label: 'Facilities (Fasilitas)' },
+                        { value: 'Events', label: 'Events (Acara & Ujian)' },
+                        { value: 'Japan', label: 'Japan (Pelepasan/Jepang)' }
+                      ]}
+                    />
+                    <FormField
+                      label="Nomor Urutan Tampil"
+                      type="number"
+                      value={row.order}
+                      onChange={(e) => handleRowChange(index, 'order', Number(e.target.value))}
+                    />
+                  </div>
 
-          <FormField
-            label="Deskripsi Keterangan Foto"
-            type="textarea"
-            rows={2}
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
+                  <PhotoUrlField
+                    label="URL Foto / Gambar"
+                    required
+                    value={row.image}
+                    onChange={(val) => handleRowChange(index, 'image', val)}
+                    placeholder="https://..."
+                  />
 
-          <FormField
-            label="Status Foto"
-            type="select"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            options={[
-              { value: 'ACTIVE', label: 'Aktif (Tampil di Galeri)' },
-              { value: 'INACTIVE', label: 'Non-aktif' }
-            ]}
-          />
+                  <FormField
+                    label="Deskripsi Keterangan Foto"
+                    type="textarea"
+                    rows={2}
+                    value={row.description}
+                    onChange={(e) => handleRowChange(index, 'description', e.target.value)}
+                  />
+
+                  <FormField
+                    label="Status Foto"
+                    type="select"
+                    value={row.status}
+                    onChange={(e) => handleRowChange(index, 'status', e.target.value)}
+                    options={[
+                      { value: 'ACTIVE', label: 'Aktif (Tampil di Galeri)' },
+                      { value: 'INACTIVE', label: 'Non-aktif' }
+                    ]}
+                  />
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleAddRow}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px dashed #CBD5E1',
+                  backgroundColor: '#F8FAFC',
+                  color: '#2563EB',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <Plus size={16} /> Tambah Baris Foto Lainnya
+              </button>
+            </div>
+          ) : (
+            <div>
+              <FormField
+                label="Judul Foto"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Judul momen kegiatan..."
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <FormField
+                  label="Kategori"
+                  type="select"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  options={[
+                    { value: 'Classroom', label: 'Classroom (Ruang Kelas)' },
+                    { value: 'Students', label: 'Students (Siswa)' },
+                    { value: 'Activities', label: 'Activities (Aktivitas Praktik)' },
+                    { value: 'Facilities', label: 'Facilities (Fasilitas)' },
+                    { value: 'Events', label: 'Events (Acara & Ujian)' },
+                    { value: 'Japan', label: 'Japan (Pelepasan/Jepang)' }
+                  ]}
+                />
+                <FormField
+                  label="Nomor Urutan Tampil"
+                  type="number"
+                  value={formData.order}
+                  onChange={(e) => setFormData({ ...formData, order: Number(e.target.value) })}
+                />
+              </div>
+
+              <PhotoUrlField
+                label="URL Foto / Gambar"
+                required
+                value={formData.image}
+                onChange={(val) => setFormData({ ...formData, image: val })}
+                placeholder="https://..."
+              />
+
+              <FormField
+                label="Deskripsi Keterangan Foto"
+                type="textarea"
+                rows={2}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+
+              <FormField
+                label="Status Foto"
+                type="select"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                options={[
+                  { value: 'ACTIVE', label: 'Aktif (Tampil di Galeri)' },
+                  { value: 'INACTIVE', label: 'Non-aktif' }
+                ]}
+              />
+            </div>
+          )}
         </form>
       </Modal>
 

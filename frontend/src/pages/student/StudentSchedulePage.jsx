@@ -151,7 +151,7 @@ export default function StudentSchedulePage() {
             <option value="ALL">Semua Kelas Aktif ({classes.length})</option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {cls.class_name || cls.name}
+                {cls.className || cls.class_name || cls.name || `Kelas #${cls.id}`}
               </option>
             ))}
           </select>

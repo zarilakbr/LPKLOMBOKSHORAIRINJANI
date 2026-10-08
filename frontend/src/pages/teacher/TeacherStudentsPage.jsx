@@ -106,7 +106,7 @@ export default function TeacherStudentsPage() {
             <option value="ALL">Semua Kelas</option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {cls.name || cls.class_name}
+                {cls.className || cls.name || cls.class_name || `Kelas #${cls.id}`}
               </option>
             ))}
           </select>

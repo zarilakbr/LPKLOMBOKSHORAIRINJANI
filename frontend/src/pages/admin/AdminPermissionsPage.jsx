@@ -306,7 +306,7 @@ export default function AdminPermissionsPage() {
           <option value="ALL">Semua Kelas</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.className || c.name}
+              {c.className || c.name || c.class_name || `Kelas #${c.id}`}
             </option>
           ))}
         </select>

@@ -14,15 +14,29 @@ import {
   RefreshCw,
   Phone,
   Mail,
-  Calendar
+  Calendar,
+  Copy,
+  Trash2
 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import FormField from '../../components/admin/FormField';
+import PhotoUrlField from '../../components/admin/PhotoUrlField';
 import { userService } from '../../services/dataService';
 import { useSearchParams } from 'react-router-dom';
+
+const defaultUserRow = () => ({
+  name: '',
+  email: '',
+  phone: '',
+  avatar: '',
+  password: '',
+  role: 'ADMIN',
+  department: 'Manajemen Lembaga',
+  status: 'ACTIVE'
+});
 
 export default function AdminUsersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,15 +67,8 @@ export default function AdminUsersPage() {
   const [rejectError, setRejectError] = useState('');
 
   // Form State for Create/Edit
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    role: 'ADMIN',
-    department: '',
-    status: 'ACTIVE'
-  });
+  const [createRows, setCreateRows] = useState([defaultUserRow()]);
+  const [formData, setFormData] = useState(defaultUserRow());
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -164,17 +171,42 @@ export default function AdminUsersPage() {
 
   // Action: Open Create Modal
   const handleOpenCreate = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      password: '',
-      role: 'ADMIN',
-      department: 'Manajemen Lembaga',
-      status: 'ACTIVE'
-    });
+    setCreateRows([defaultUserRow()]);
     setSelectedUser(null);
     setModalMode('create');
+  };
+
+  const handleAddRow = () => {
+    setCreateRows((prev) => [
+      ...prev,
+      defaultUserRow()
+    ]);
+  };
+
+  const handleDuplicateRow = (index) => {
+    setCreateRows((prev) => {
+      const source = prev[index];
+      const clone = {
+        ...source,
+        name: source.name ? `${source.name} (Salinan)` : '',
+        email: '' // clear email to prevent collision
+      };
+      const next = [...prev];
+      next.splice(index + 1, 0, clone);
+      return next;
+    });
+  };
+
+  const handleRemoveRow = (index) => {
+    setCreateRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index, field, value) => {
+    setCreateRows((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   // Action: Open Edit Modal
@@ -184,6 +216,7 @@ export default function AdminUsersPage() {
       name: user.name || '',
       email: user.email || '',
       phone: user.phone || '',
+      avatar: user.avatar || '',
       role: user.role || 'SISWA',
       department: user.department || '',
       status: user.status || 'ACTIVE'
@@ -198,9 +231,44 @@ export default function AdminUsersPage() {
     setFeedback(null);
     try {
       if (modalMode === 'create') {
-        await userService.create(formData);
-        setFeedback({ type: 'success', message: 'Pengguna baru berhasil ditambahkan.' });
+        for (let i = 0; i < createRows.length; i++) {
+          const row = createRows[i];
+          if (!row.name?.trim() || !row.email?.trim() || !row.password?.trim()) {
+            setFeedback({
+              type: 'error',
+              message: `Baris #${i + 1}: Nama lengkap, email, dan kata sandi awal wajib diisi.`
+            });
+            setActionLoading(false);
+            return;
+          }
+          if (!row.email.includes('@')) {
+            setFeedback({
+              type: 'error',
+              message: `Baris #${i + 1}: Format alamat email tidak valid.`
+            });
+            setActionLoading(false);
+            return;
+          }
+          if (row.password.length < 6) {
+            setFeedback({
+              type: 'error',
+              message: `Baris #${i + 1}: Kata sandi awal minimal 6 karakter.`
+            });
+            setActionLoading(false);
+            return;
+          }
+        }
+        await Promise.all(createRows.map((row) => userService.create(row)));
+        setFeedback({
+          type: 'success',
+          message: `Berhasil menambahkan ${createRows.length} pengguna baru.`
+        });
       } else if (modalMode === 'edit' && selectedUser) {
+        if (!formData.name?.trim() || !formData.email?.trim()) {
+          setFeedback({ type: 'error', message: 'Nama dan email pengguna wajib diisi.' });
+          setActionLoading(false);
+          return;
+        }
         await userService.update(selectedUser.id, formData);
         setFeedback({ type: 'success', message: 'Data pengguna berhasil diperbarui.' });
       }
@@ -462,17 +530,30 @@ export default function AdminUsersPage() {
                     {filteredPendingUsers.map((user) => (
                       <tr key={user.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <td style={{ padding: '0.85rem 1rem' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                            <Mail size={12} />
-                            <span>{user.email}</span>
-                          </div>
-                          {user.phone && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                              <Phone size={12} />
-                              <span>{user.phone}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <img
+                              src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=0D8ABC&color=fff`}
+                              alt={user.name}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=0D8ABC&color=fff`;
+                              }}
+                              style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                                <Mail size={12} />
+                                <span>{user.email}</span>
+                              </div>
+                              {user.phone && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                                  <Phone size={12} />
+                                  <span>{user.phone}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </td>
                         <td style={{ padding: '0.85rem 1rem' }}>
                           <StatusBadge status={user.role} />
@@ -600,10 +681,21 @@ export default function AdminUsersPage() {
             {
               header: 'Nama & Email Pengguna',
               render: (row) => (
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{row.name}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{row.email}</div>
-                  {row.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{row.phone}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <img
+                    src={row.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.name || 'User')}&background=0D8ABC&color=fff`}
+                    alt={row.name}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(row.name || 'User')}&background=0D8ABC&color=fff`;
+                    }}
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{row.name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{row.email}</div>
+                    {row.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{row.phone}</div>}
+                  </div>
                 </div>
               )
             },
@@ -687,6 +779,23 @@ export default function AdminUsersPage() {
       >
         {selectedUser && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.88rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-subtle)' }}>
+              <img
+                src={selectedUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name || 'User')}&background=0D8ABC&color=fff`}
+                alt={selectedUser.name}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name || 'User')}&background=0D8ABC&color=fff`;
+                }}
+                style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover' }}
+              />
+              <div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>{selectedUser.name}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedUser.email}</div>
+                <div style={{ marginTop: '0.25rem' }}><StatusBadge status={selectedUser.role} /></div>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Nama Lengkap</div>
@@ -798,87 +907,257 @@ export default function AdminUsersPage() {
       <Modal
         isOpen={modalMode === 'create' || modalMode === 'edit'}
         onClose={() => setModalMode(null)}
-        title={modalMode === 'create' ? 'Tambah Pengguna Baru' : 'Edit Pengguna'}
+        title={modalMode === 'create' ? `Tambah Pengguna Baru (${createRows.length} Data)` : 'Edit Pengguna'}
         footer={
           <>
             <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
               Batal
             </button>
             <button type="submit" form="user-form" disabled={actionLoading} className="btn btn-primary btn-sm">
-              {actionLoading ? 'Menyimpan...' : 'Simpan Pengguna'}
+              {actionLoading
+                ? 'Menyimpan...'
+                : (modalMode === 'create' ? `Simpan Semua Pengguna (${createRows.length} Data)` : 'Simpan Pengguna')}
             </button>
           </>
         }
       >
         <form id="user-form" onSubmit={handleSave}>
-          <FormField
-            label="Nama Lengkap *"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Contoh: Budi Santoso"
-          />
+          {modalMode === 'create' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {createRows.map((row, index) => (
+                <div
+                  key={index}
+                  style={{
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '0.75rem',
+                      paddingBottom: '0.5rem',
+                      borderBottom: '1px solid #E2E8F0'
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1E293B' }}>
+                      Pengguna #{index + 1}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateRow(index)}
+                        className="btn btn-outline btn-xs"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          fontSize: '0.75rem',
+                          padding: '0.25rem 0.5rem'
+                        }}
+                        title="Duplikat baris data ini"
+                      >
+                        <Copy size={13} /> Duplikat
+                      </button>
+                      {createRows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(index)}
+                          className="btn btn-outline btn-xs"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            color: '#EF4444',
+                            borderColor: '#FECACA'
+                          }}
+                          title="Hapus baris data ini"
+                        >
+                          <Trash2 size={13} /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-          <FormField
-            label="Alamat Email Login *"
-            type="email"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="email@example.com"
-          />
+                  <FormField
+                    label="Nama Lengkap *"
+                    required
+                    value={row.name}
+                    onChange={(e) => handleRowChange(index, 'name', e.target.value)}
+                    placeholder="Contoh: Budi Santoso"
+                  />
 
-          <FormField
-            label="No. Telepon / WhatsApp"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="08xxxxxxxxxx"
-          />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <FormField
+                      label="Alamat Email Login *"
+                      type="email"
+                      required
+                      value={row.email}
+                      onChange={(e) => handleRowChange(index, 'email', e.target.value)}
+                      placeholder="email@example.com"
+                    />
+                    <FormField
+                      label="No. Telepon / WhatsApp"
+                      value={row.phone}
+                      onChange={(e) => handleRowChange(index, 'phone', e.target.value)}
+                      placeholder="08xxxxxxxxxx"
+                    />
+                  </div>
 
-          {modalMode === 'create' && (
-            <FormField
-              label="Kata Sandi Awal *"
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="Minimal 6 karakter"
-            />
+                  <FormField
+                    label="Kata Sandi Awal *"
+                    type="password"
+                    required
+                    value={row.password}
+                    onChange={(e) => handleRowChange(index, 'password', e.target.value)}
+                    placeholder="Minimal 6 karakter"
+                  />
+
+                  <PhotoUrlField
+                    label="URL Foto Profil / Avatar"
+                    value={row.avatar}
+                    onChange={(val) => handleRowChange(index, 'avatar', val)}
+                    placeholder="https://..."
+                    aspectRatio="1/1"
+                    previewHeight="100px"
+                    fallbackPlaceholder={`https://ui-avatars.com/api/?name=${encodeURIComponent(row.name || 'User')}&background=0D8ABC&color=fff`}
+                  />
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <FormField
+                      label="Peran Akses (Role)"
+                      type="select"
+                      value={row.role}
+                      onChange={(e) => handleRowChange(index, 'role', e.target.value)}
+                      options={[
+                        { value: 'ADMIN', label: 'ADMIN (Administrator Lembaga)' },
+                        { value: 'PENGAJAR', label: 'PENGAJAR (Sensei / Instruktur)' },
+                        { value: 'SISWA', label: 'SISWA (Peserta Pelatihan)' }
+                      ]}
+                    />
+
+                    <FormField
+                      label="Status Akun"
+                      type="select"
+                      value={row.status}
+                      onChange={(e) => handleRowChange(index, 'status', e.target.value)}
+                      options={[
+                        { value: 'ACTIVE', label: 'ACTIVE (Aktif / Disetujui)' },
+                        { value: 'PENDING', label: 'PENDING (Menunggu Approval)' },
+                        { value: 'REJECTED', label: 'REJECTED (Ditolak)' },
+                        { value: 'SUSPENDED', label: 'SUSPENDED (Ditangguhkan)' }
+                      ]}
+                    />
+                  </div>
+
+                  <FormField
+                    label="Divisi / Departemen"
+                    value={row.department}
+                    onChange={(e) => handleRowChange(index, 'department', e.target.value)}
+                    placeholder="Contoh: Sensei Bahasa Jepang N4"
+                  />
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleAddRow}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px dashed #CBD5E1',
+                  backgroundColor: '#F8FAFC',
+                  color: '#2563EB',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <Plus size={16} /> Tambah Baris Pengguna Lainnya
+              </button>
+            </div>
+          ) : (
+            <div>
+              <FormField
+                label="Nama Lengkap *"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Contoh: Budi Santoso"
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <FormField
+                  label="Alamat Email Login *"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+                <FormField
+                  label="No. Telepon / WhatsApp"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="08xxxxxxxxxx"
+                />
+              </div>
+
+              <PhotoUrlField
+                label="URL Foto Profil / Avatar"
+                value={formData.avatar}
+                onChange={(val) => setFormData({ ...formData, avatar: val })}
+                placeholder="https://..."
+                aspectRatio="1/1"
+                previewHeight="100px"
+                fallbackPlaceholder={`https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=0D8ABC&color=fff`}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <FormField
+                  label="Peran Akses (Role)"
+                  type="select"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  options={[
+                    { value: 'ADMIN', label: 'ADMIN (Administrator Lembaga)' },
+                    { value: 'PENGAJAR', label: 'PENGAJAR (Sensei / Instruktur)' },
+                    { value: 'SISWA', label: 'SISWA (Peserta Pelatihan)' }
+                  ]}
+                />
+
+                <FormField
+                  label="Status Akun"
+                  type="select"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  options={[
+                    { value: 'ACTIVE', label: 'ACTIVE (Aktif / Disetujui)' },
+                    { value: 'PENDING', label: 'PENDING (Menunggu Approval)' },
+                    { value: 'REJECTED', label: 'REJECTED (Ditolak)' },
+                    { value: 'SUSPENDED', label: 'SUSPENDED (Ditangguhkan)' }
+                  ]}
+                />
+              </div>
+
+              <FormField
+                label="Divisi / Departemen"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                placeholder="Contoh: Sensei Bahasa Jepang N4"
+              />
+            </div>
           )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <FormField
-              label="Peran Akses (Role)"
-              type="select"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              options={[
-                { value: 'ADMIN', label: 'ADMIN (Administrator Lembaga)' },
-                { value: 'PENGAJAR', label: 'PENGAJAR (Sensei / Instruktur)' },
-                { value: 'SISWA', label: 'SISWA (Peserta Pelatihan)' }
-              ]}
-            />
-
-            <FormField
-              label="Status Akun"
-              type="select"
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              options={[
-                { value: 'ACTIVE', label: 'ACTIVE (Aktif / Disetujui)' },
-                { value: 'PENDING', label: 'PENDING (Menunggu Approval)' },
-                { value: 'REJECTED', label: 'REJECTED (Ditolak)' },
-                { value: 'SUSPENDED', label: 'SUSPENDED (Ditangguhkan)' }
-              ]}
-            />
-          </div>
-
-          <FormField
-            label="Divisi / Departemen"
-            value={formData.department}
-            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-            placeholder="Contoh: Sensei Bahasa Jepang N4"
-          />
         </form>
       </Modal>
 

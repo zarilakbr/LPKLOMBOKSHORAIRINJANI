@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import JapaneseAtmosphere from './JapaneseAtmosphere';
+import FloatingWhatsAppButton from './FloatingWhatsAppButton';
 
 export default function PublicLayout() {
   const location = useLocation();
@@ -27,6 +28,7 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       <Footer />
+      <FloatingWhatsAppButton />
     </div>
   );
 }

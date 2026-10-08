@@ -45,6 +45,7 @@ import StudentAttendancePage from './pages/student/StudentAttendancePage';
 import StudentPermissionPage from './pages/student/StudentPermissionPage';
 import StudentNotificationsPage from './pages/student/StudentNotificationsPage';
 import StudentMaterialsPage from './pages/student/StudentMaterialsPage';
+import StudentResumePage from './pages/student/StudentResumePage';
 
 // Pengajar Dashboard Shell & Pages
 import TeacherLayout from './components/teacher/TeacherLayout';
@@ -81,6 +82,7 @@ import AdminFaqPage from './pages/admin/AdminFaqPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import AdminActivityLogsPage from './pages/admin/AdminActivityLogsPage';
+import AdminStudentResumePage from './pages/admin/AdminStudentResumePage';
 
 export default function AppRoutes() {
   return (
@@ -124,6 +126,7 @@ export default function AppRoutes() {
           <Route path="attendance" element={<StudentAttendancePage />} />
           <Route path="permission" element={<StudentPermissionPage />} />
           <Route path="materials" element={<StudentMaterialsPage />} />
+          <Route path="resume" element={<StudentResumePage />} />
           <Route path="notifications" element={<StudentNotificationsPage />} />
           <Route path="settings" element={<StudentSettingsPage />} />
         </Route>
@@ -149,6 +152,7 @@ export default function AppRoutes() {
           <Route path="programs" element={<AdminProgramsPage />} />
           <Route path="classes" element={<AdminClassesPage />} />
           <Route path="enrollments" element={<AdminEnrollmentsPage />} />
+          <Route path="resumes" element={<AdminStudentResumePage />} />
           <Route path="schedules" element={<AdminSchedulePage />} />
           <Route path="materials" element={<AdminMaterialsPage />} />
           <Route path="attendance" element={<AdminAttendancePage />} />

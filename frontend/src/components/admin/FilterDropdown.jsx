@@ -21,11 +21,17 @@ export default function FilterDropdown({ value, onChange, options = [], label = 
             outline: 'none'
           }}
         >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          {options.map((opt, idx) => {
+            const val = typeof opt === 'object' && opt !== null ? (opt.value ?? opt.id ?? '') : opt;
+            const lbl = typeof opt === 'object' && opt !== null 
+              ? (opt.label ?? opt.name ?? opt.className ?? opt.title ?? (opt.value !== undefined ? String(opt.value) : '')) 
+              : opt;
+            return (
+              <option key={opt?.key || (val !== '' ? val : idx)} value={val}>
+                {lbl || val || '-'}
+              </option>
+            );
+          })}
         </select>
         <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', color: '#64748B', pointerEvents: 'none', display: 'flex' }}>
           <SlidersHorizontal size={14} />

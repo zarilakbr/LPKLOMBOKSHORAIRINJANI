@@ -1,11 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { MapPin, Phone, Mail, ArrowRight, ShieldCheck, ExternalLink } from 'lucide-react';
 import { mockSiteSettings } from '../../data/mockSiteSettings';
 import { BRAND } from '../../config/brand';
+import { settingsService } from '../../services/dataService';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [siteSettings, setSiteSettings] = useState(mockSiteSettings);
+
+  useEffect(() => {
+    settingsService.getPublicSettings()
+      .then((data) => {
+        if (data) {
+          setSiteSettings((prev) => ({
+            ...prev,
+            ...data,
+            address: data.address || prev.address,
+            phone: data.phone || prev.phone,
+            whatsapp: data.whatsapp || prev.whatsapp,
+            whatsappUrl: data.whatsappUrl || prev.whatsappUrl,
+            email: data.email || prev.email,
+            operatingHours: data.operatingHours || data.operating_hours || prev.operatingHours,
+            mapsUrl: data.googleMapsUrl || data.maps_url || prev.mapsUrl
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <footer
@@ -173,28 +195,58 @@ export default function Footer() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                 <MapPin size={18} color="var(--vermilion)" style={{ marginTop: '0.2rem', flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem', lineHeight: 1.5 }}>
-                  {mockSiteSettings.address}
-                </span>
+                <div>
+                  <span style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem', lineHeight: 1.5, display: 'block' }}>
+                    {siteSettings.address}
+                  </span>
+                  {(siteSettings.mapsUrl || siteSettings.googleMapsUrl) && (
+                    <a
+                      href={siteSettings.mapsUrl || siteSettings.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        color: 'var(--vermilion)',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        marginTop: '0.35rem',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      <span>Buka di Google Maps</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 <Phone size={18} color="var(--vermilion)" style={{ flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem' }}>
-                  {mockSiteSettings.phone} ({mockSiteSettings.whatsapp})
-                </span>
+                <a
+                  href={siteSettings.whatsappUrl || `https://wa.me/818075079228`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem', textDecoration: 'none' }}
+                >
+                  {siteSettings.whatsapp || siteSettings.phone || '+81 80-7507-9228'}
+                </a>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 <Mail size={18} color="var(--vermilion)" style={{ flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem' }}>
-                  {mockSiteSettings.email}
-                </span>
+                <a
+                  href={`mailto:${siteSettings.email || 'damar.muammar@gmail.com'}`}
+                  style={{ color: 'var(--text-on-dark-muted)', fontSize: '0.88rem', textDecoration: 'none' }}
+                >
+                  {siteSettings.email || 'damar.muammar@gmail.com'}
+                </a>
               </div>
               <div style={{ marginTop: '0.5rem', padding: '0.85rem', backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: 'var(--radius-sm)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#E2E8F0', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
                   Jam Pelayanan Lembaga
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-on-dark-muted)' }}>
-                  {mockSiteSettings.operatingHours}
+                  {siteSettings.operatingHours || 'Senin – Sabtu: 08.00 – 17.00 WITA'}
                 </div>
               </div>
             </div>
@@ -219,7 +271,7 @@ export default function Footer() {
             &copy; {currentYear} {mockSiteSettings.institutionName}. Hak Cipta Dilindungi Undang-Undang.
           </div>
           <div style={{ fontStyle: 'italic', opacity: 0.7, maxWidth: '720px' }}>
-            Disclaimer: Website ini dikembangkan sebagai portal resmi pelatihan bahasa dan persiapan kerja. Seluruh informasi disajikan transparan tanpa klaim jaminan instan. Konten data pengujian merupakan materi simulasi resmi pengembangan.
+            Disclaimer: Website ini dikembangkan sebagai portal resmi pelatihan bahasa dan persiapan kerja. Seluruh informasi disajikan secara transparan tanpa klaim jaminan instan.
           </div>
         </div>
       </div>

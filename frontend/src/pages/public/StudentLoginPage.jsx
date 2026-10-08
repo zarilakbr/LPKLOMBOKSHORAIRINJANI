@@ -429,39 +429,7 @@ export default function StudentLoginPage() {
               </div>
             </div>
 
-            {/* Fast Demo Credentials Helper for Testing */}
-            <div
-              style={{
-                margin: '0.65rem clamp(1rem, 4vw, 1.75rem) 0 clamp(1rem, 4vw, 1.75rem)',
-                padding: '0.55rem 0.75rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-surface-subtle)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '0.78rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.5rem',
-                flexWrap: 'wrap'
-              }}
-            >
-              <span style={{ color: 'var(--text-secondary)' }}>Demo Akun {selectedRole}:</span>
-              <button
-                type="button"
-                onClick={() => handleFillDemo(selectedRole)}
-                style={{
-                  color: 'var(--vermilion)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: 0,
-                  background: 'none',
-                  border: 'none'
-                }}
-              >
-                Isi Kredensial
-              </button>
-            </div>
+
 
             {/* Login Form */}
             <form onSubmit={handleLoginSubmit} style={{ padding: '1rem clamp(1rem, 4vw, 1.75rem) 1.75rem clamp(1rem, 4vw, 1.75rem)' }}>

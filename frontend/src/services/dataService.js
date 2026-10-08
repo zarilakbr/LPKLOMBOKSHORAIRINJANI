@@ -634,6 +634,8 @@ export const userService = {
     const payload = {
       name: data.name,
       email: data.email,
+      phone: data.phone || null,
+      avatar: data.avatar || null,
       password: data.password || 'Password123!',
       role: data.role,
       department: data.department || null,
@@ -647,6 +649,8 @@ export const userService = {
     const payload = {
       name: data.name,
       email: data.email,
+      phone: data.phone || null,
+      avatar: data.avatar || null,
       role: data.role,
       department: data.department || null,
       status: data.status || 'ACTIVE'
@@ -913,6 +917,15 @@ export const journeyService = {
  * Admin: GET /api/admin/settings, PUT /api/admin/settings
  */
 export const settingsService = {
+  async getPublicSettings() {
+    try {
+      const res = await apiClient.get('/settings');
+      return res.data?.data || null;
+    } catch (err) {
+      return null;
+    }
+  },
+
   async getSettings() {
     const res = await apiClient.get('/admin/settings');
     return res.data?.data || {};
@@ -1095,5 +1108,55 @@ export const studentAuthService = {
     } catch (err) {
       return [];
     }
+  }
+};
+
+/**
+ * 16. RESUME SERVICE (Student & Admin Rirekisho)
+ */
+export const resumeService = {
+  // Student API
+  async getMyResume() {
+    const res = await apiClient.get('/student/resume');
+    return res.data?.data || null;
+  },
+
+  async saveMyResume(data) {
+    const res = await apiClient.post('/student/resume', data);
+    return res.data?.data;
+  },
+
+  async uploadPhoto(file) {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await apiClient.post('/student/resume/upload-photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data?.data;
+  },
+
+  // Admin API
+  async getAll(params = {}) {
+    const res = await apiClient.get('/admin/resumes', { params });
+    return res.data?.data || [];
+  },
+
+  async getById(id) {
+    const res = await apiClient.get(`/admin/resumes/${id}`);
+    return res.data?.data || null;
+  },
+
+  async update(id, data) {
+    const res = await apiClient.put(`/admin/resumes/${id}`, data);
+    return res.data?.data;
+  },
+
+  async adminUploadPhoto(id, file) {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await apiClient.post(`/admin/resumes/${id}/upload-photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data?.data;
   }
 };

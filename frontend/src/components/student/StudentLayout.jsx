@@ -64,6 +64,7 @@ export default function StudentLayout() {
     { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, end: true },
     { label: 'Profil Saya', to: '/dashboard/profile', icon: User },
     { label: 'Pendaftaran Saya', to: '/dashboard/registrations', icon: FileText },
+    { label: 'Resume / 履歴書', to: '/dashboard/resume', icon: FileText },
     { label: 'Program Saya', to: '/dashboard/programs', icon: BookOpen },
     { label: 'Materi Belajar', to: '/dashboard/materials', icon: BookMarked },
     { label: 'Jadwal', to: '/dashboard/schedule', icon: Calendar },

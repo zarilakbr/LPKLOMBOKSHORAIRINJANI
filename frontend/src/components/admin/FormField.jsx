@@ -37,11 +37,20 @@ export default function FormField({
             color: '#1E293B'
           }}
         >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          {placeholder && (!options.length || (typeof options[0] === 'object' && options[0]?.value !== '')) && (
+            <option value="">{placeholder}</option>
+          )}
+          {options.map((opt, idx) => {
+            const val = typeof opt === 'object' && opt !== null ? (opt.value ?? opt.id ?? '') : opt;
+            const lbl = typeof opt === 'object' && opt !== null 
+              ? (opt.label ?? opt.name ?? opt.className ?? opt.class_name ?? opt.title ?? (opt.value !== undefined ? String(opt.value) : '')) 
+              : opt;
+            return (
+              <option key={opt?.key || (val !== '' ? val : idx)} value={val}>
+                {lbl || val || '-'}
+              </option>
+            );
+          })}
         </select>
       ) : type === 'textarea' ? (
         <textarea

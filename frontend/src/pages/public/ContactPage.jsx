@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, MessageSquare, Send, CheckCircle2, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
 import SectionHeading from '../../components/common/SectionHeading';
 import Button from '../../components/common/Button';
 import TurnstileWidget from '../../components/common/TurnstileWidget';
 import { mockSiteSettings } from '../../data/mockSiteSettings';
+import { settingsService } from '../../services/dataService';
 
 export default function ContactPage() {
+  const [siteSettings, setSiteSettings] = useState(mockSiteSettings);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
   const [formData, setFormData] = useState({
@@ -16,10 +18,36 @@ export default function ContactPage() {
     message: ''
   });
 
+  useEffect(() => {
+    settingsService.getPublicSettings()
+      .then((data) => {
+        if (data) {
+          setSiteSettings((prev) => ({
+            ...prev,
+            ...data,
+            institutionName: data.institutionName || prev.institutionName,
+            address: data.address || prev.address,
+            phone: data.phone || prev.phone,
+            whatsapp: data.whatsapp || prev.whatsapp,
+            whatsappUrl: data.whatsappUrl || prev.whatsappUrl,
+            email: data.email || prev.email,
+            operatingHours: data.operatingHours || data.operating_hours || prev.operatingHours,
+            mapsUrl: data.googleMapsUrl || data.maps_url || prev.mapsUrl,
+            googleMapsUrl: data.googleMapsUrl || data.maps_url || prev.googleMapsUrl
+          }));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch remote settings, using default brand info:', err);
+      });
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setFormSubmitted(true);
   };
+
+  const mapsLink = siteSettings.googleMapsUrl || siteSettings.mapsUrl || `https://maps.google.com/?q=${encodeURIComponent(siteSettings.address || '')}`;
 
   return (
     <div>
@@ -42,11 +70,27 @@ export default function ContactPage() {
                     <div style={{ width: '42px', height: '42px', backgroundColor: 'var(--vermilion-subtle)', color: 'var(--vermilion)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <MapPin size={22} />
                     </div>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Gedung Pelatihan & Kantor Pusat</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                        {mockSiteSettings.address}
+                        {siteSettings.address}
                       </p>
+                      {mapsLink && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <Button
+                            href={mapsLink}
+                            variant="outline"
+                            size="sm"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                          >
+                            <MapPin size={14} />
+                            <span>Buka di Google Maps</span>
+                            <ExternalLink size={12} />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -60,11 +104,11 @@ export default function ContactPage() {
                     <div>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Telepon & WhatsApp</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        {mockSiteSettings.phone || mockSiteSettings.whatsapp ? `${mockSiteSettings.phone} / ${mockSiteSettings.whatsapp}` : 'Nomor kontak resmi sedang dalam proses pembaruan administrasi.'}
+                        {siteSettings.phone || siteSettings.whatsapp || '+81 80-7507-9228'}
                       </p>
-                      {mockSiteSettings.whatsappUrl && (
+                      {siteSettings.whatsappUrl && (
                         <div style={{ marginTop: '0.75rem' }}>
-                          <Button href={mockSiteSettings.whatsappUrl} variant="primary" size="sm">
+                          <Button href={siteSettings.whatsappUrl} variant="primary" size="sm" target="_blank" rel="noopener noreferrer">
                             Chat Langsung via WhatsApp
                           </Button>
                         </div>
@@ -82,7 +126,9 @@ export default function ContactPage() {
                     <div>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Email Surat Menyurat</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        {mockSiteSettings.email}
+                        <a href={`mailto:${siteSettings.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                          {siteSettings.email}
+                        </a>
                       </p>
                     </div>
                   </div>
@@ -97,7 +143,7 @@ export default function ContactPage() {
                     <div>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>Jam Operasional Lembaga</h3>
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        {mockSiteSettings.operatingHours}
+                        {siteSettings.operatingHours}
                       </p>
                     </div>
                   </div>
@@ -113,25 +159,28 @@ export default function ContactPage() {
                     <CheckCircle2 size={36} />
                   </div>
                   <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem' }}>
-                    Pesan Berhasil Terkirim!
+                    Pesan Terkirim
                   </h3>
-                  <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '2rem' }}>
-                    Terima kasih, {formData.name}. Pertanyaan Anda telah diterima oleh tim administrasi {mockSiteSettings.institutionName}. Kami akan merespon melalui email atau WhatsApp dalam 1x24 jam kerja.
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '420px', margin: '0 auto 1.75rem auto' }}>
+                    Terima kasih, {formData.name}. Pertanyaan Anda telah diterima oleh tim administrasi {siteSettings.institutionName}. Kami akan merespon melalui email atau WhatsApp dalam 1x24 jam kerja.
                   </p>
-                  <Button onClick={() => setFormSubmitted(false)} variant="outline">
-                    Kirim Pesan Lainnya
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFormSubmitted(false);
+                      setFormData({ name: '', email: '', phone: '', subject: 'Konsultasi Program', message: '' });
+                    }}
+                  >
+                    Kirim Pesan Lain
                   </Button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit}>
-                  <div style={{ marginBottom: '1.75rem' }}>
-                    <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.35rem' }}>Kirim Pesan Pertanyaan</h3>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                      Tuliskan detail hal yang ingin Anda tanyakan kepada konsultan kami.
-                    </p>
-                  </div>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>
+                    Formulir Pertanyaan & Konsultasi
+                  </h3>
 
-                  <div className="form-group">
+                  <div>
                     <label className="form-label">Nama Lengkap *</label>
                     <input
                       type="text"
@@ -144,23 +193,23 @@ export default function ContactPage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div className="form-group">
+                    <div>
                       <label className="form-label">Alamat Email *</label>
                       <input
                         type="email"
                         className="form-input"
-                        placeholder="contoh@gmail.com"
+                        placeholder="nama@email.com"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       />
                     </div>
-                    <div className="form-group">
+                    <div>
                       <label className="form-label">No. WhatsApp / HP *</label>
                       <input
                         type="tel"
                         className="form-input"
-                        placeholder="0812xxxxxxx"
+                        placeholder="Contoh: 08123456789"
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -168,24 +217,23 @@ export default function ContactPage() {
                     </div>
                   </div>
 
-                  <div className="form-group">
+                  <div>
                     <label className="form-label">Topik Pertanyaan</label>
                     <select
-                      className="form-select"
+                      className="form-input"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                     >
-                      <option value="Konsultasi Program">Konsultasi Program Pelatihan</option>
-                      <option value="Jadwal Kelas">Jadwal Kelas & Pendaftaran</option>
-                      <option value="Tokutei Ginou">Persyaratan Kerja Tokutei Ginou (SSW)</option>
-                      <option value="Biaya & Asrama">Informasi Biaya & Fasilitas Asrama</option>
-                      <option value="Kunjungan Lembaga">Reservasi Kunjungan Lembaga</option>
+                      <option value="Konsultasi Program">Konsultasi Program Bahasa Jepang</option>
+                      <option value="Program Tokutei Ginou">Program Tokutei Ginou (SSW) Pekerja Berketerampilan</option>
+                      <option value="Program Magang Ginou Jisshusei">Program Magang (Ginou Jisshusei)</option>
+                      <option value="Biaya dan Skema Pembayaran">Informasi Biaya Pelatihan & Talangan</option>
                       <option value="Lainnya">Pertanyaan Lainnya</option>
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Pesan / Pertanyaan Anda *</label>
+                  <div>
+                    <label className="form-label">Pesan / Pertanyaan *</label>
                     <textarea
                       className="form-textarea"
                       placeholder="Tuliskan pertanyaan Anda dengan jelas..."
@@ -209,33 +257,64 @@ export default function ContactPage() {
             </div>
           </div>
 
-          {/* Interactive Map Placeholder */}
+          {/* Interactive Map Preview */}
           <div style={{ marginTop: '4rem' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Peta Lokasi Lembaga</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Peta Lokasi Gedung Lembaga</h3>
             <div
               style={{
                 width: '100%',
-                height: '320px',
-                backgroundColor: 'var(--bg-surface-subtle)',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-strong)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.75rem',
-                color: 'var(--text-secondary)',
-                position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                backgroundColor: 'var(--bg-surface-subtle)'
               }}
             >
-              <MapPin size={36} color="var(--vermilion)" />
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                {mockSiteSettings.institutionName} - Gedung Lombok Shorai Center
-              </div>
-              <div style={{ fontSize: '0.85rem' }}>{mockSiteSettings.address}</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                [Simulasi Peta Interaktif - Siap Terintegrasi Google Maps API]
+              <iframe
+                title="Peta Lokasi LPK Lombok Shorai Rinjani"
+                width="100%"
+                height="340"
+                style={{ border: 0, display: 'block' }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(siteSettings.address || 'Jl. Raya Abdul Aziz.99 Parwa, Dusun Parwa, Dasan Tapen, Kec. Gerung, Kab. Lombok Barat, NTB 83363')}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+              />
+              <div
+                style={{
+                  padding: '1.25rem 1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '1rem',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderTop: '1px solid var(--border-subtle)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <MapPin size={22} color="var(--vermilion)" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                      {siteSettings.institutionName || 'LPK Lombok Shorai Rinjani'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      {siteSettings.address}
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  href={mapsLink}
+                  variant="primary"
+                  size="sm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <MapPin size={14} />
+                  <span>Petunjuk Arah Google Maps</span>
+                  <ArrowRight size={14} />
+                </Button>
               </div>
             </div>
           </div>

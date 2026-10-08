@@ -42,6 +42,8 @@ export default function AdminLayout() {
         return 'Kelola Program Pelatihan';
       case '/admin/classes':
         return 'Jadwal & Kuota Angkatan Kelas';
+      case '/admin/resumes':
+        return 'Kelola Resume Jepang (履歴書) Siswa';
       case '/admin/materials':
         return 'Materi Pembelajaran LMS';
       case '/admin/opportunities':

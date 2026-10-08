@@ -23,19 +23,7 @@ export default function StoriesPage() {
             subtitle="Inspirasi nyata dari para alumni yang berhasil melalui tahapan bimbingan intensif dan kini berkarya di Tokyo, Aichi, Kanagawa, dan kota lainnya."
           />
 
-          <div
-            style={{
-              padding: '1rem 1.5rem',
-              backgroundColor: 'var(--ochre-subtle)',
-              border: '1px solid var(--ochre-border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.82rem',
-              color: 'var(--ochre)',
-              marginBottom: '2.5rem'
-            }}
-          >
-            <strong>Pemberitahuan Pengembangan:</strong> Seluruh testimoni pada halaman ini merupakan representasi konten simulasi pengembangan (demo data) sesuai standar PRD Master.
-          </div>
+
 
           <div className="grid-2">
             {testimonials.map((testi) => (

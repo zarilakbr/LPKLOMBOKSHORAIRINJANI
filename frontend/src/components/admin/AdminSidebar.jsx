@@ -52,6 +52,7 @@ export default function AdminSidebar({ mobileOpen, onCloseMobile }) {
         { label: 'Program', to: '/admin/programs', icon: BookOpen },
         { label: 'Kelas', to: '/admin/classes', icon: GraduationCap },
         { label: 'Enrollment', to: '/admin/enrollments', icon: UserCheck },
+        { label: 'Resume Siswa', to: '/admin/resumes', icon: FileText },
         { label: 'Materi', to: '/admin/materials', icon: BookMarked },
         { label: 'Jadwal', to: '/admin/schedules', icon: Calendar },
         { label: 'Absensi', to: '/admin/attendance', icon: ClipboardCheck }

@@ -328,7 +328,7 @@ export default function AdminMaterialsPage() {
           <option value="ALL">Semua Kelas</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.className || c.name}
+              {c.className || c.name || c.class_name || `Kelas #${c.id}`}
             </option>
           ))}
         </select>
@@ -573,7 +573,7 @@ export default function AdminMaterialsPage() {
             onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
             options={classes.map((c) => ({
               value: c.id,
-              label: `${c.className || c.name}`
+              label: `${c.className || c.name || c.class_name || `Kelas #${c.id}`}`
             }))}
           />
 
