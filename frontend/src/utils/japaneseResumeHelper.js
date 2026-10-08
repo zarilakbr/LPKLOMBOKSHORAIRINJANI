@@ -505,22 +505,52 @@ export function generateJapaneseResumeData(dataId = {}, profilePhoto = '') {
 
 /**
  * Resolves a resume photo URL into an absolute URL pointing to the backend domain.
- * - Leaves absolute URLs (http://, https://, blob:, data:image/) unchanged.
+ * - Leaves valid absolute URLs (https://, blob:, data:image/) unchanged.
+ * - Upgrades http:// to https:// ONLY when window.location.protocol === 'https:'
+ *   and the host of the photo URL is not localhost or 127.0.0.1 (prevents Mixed Content in production).
  * - Automatically prepends the backend base domain from VITE_API_URL (with /api stripped)
  *   to relative paths (e.g. /uploads/resumes/...) so images load across separate domains.
  * - Does not hardcode any domain.
  */
 export function getResumePhotoUrl(photoUrl) {
   if (!photoUrl || typeof photoUrl !== 'string') return '';
-  const trimmed = photoUrl.trim();
+  let trimmed = photoUrl.trim();
+
+  // Upgrade http:// to https:// if running on HTTPS and host is not localhost or 127.0.0.1
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+        trimmed = trimmed.replace(/^http:\/\//i, 'https://');
+      }
+    } catch {
+      if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(trimmed)) {
+        trimmed = trimmed.replace(/^http:\/\//i, 'https://');
+      }
+    }
+  }
+
   if (/^(https?:|\/\/|data:image\/|blob:)/i.test(trimmed)) {
     return trimmed;
   }
 
   const rawApiUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
-  const backendBase = typeof rawApiUrl === 'string'
+  let backendBase = typeof rawApiUrl === 'string'
     ? rawApiUrl.trim().replace(/\/+api\/?$/i, '').replace(/\/+$/, '')
     : '';
+
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(backendBase)) {
+    try {
+      const parsedBase = new URL(backendBase);
+      if (parsedBase.hostname !== 'localhost' && parsedBase.hostname !== '127.0.0.1') {
+        backendBase = backendBase.replace(/^http:\/\//i, 'https://');
+      }
+    } catch {
+      if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendBase)) {
+        backendBase = backendBase.replace(/^http:\/\//i, 'https://');
+      }
+    }
+  }
 
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return backendBase ? `${backendBase}${cleanPath}` : cleanPath;

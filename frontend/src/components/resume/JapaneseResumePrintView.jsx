@@ -219,8 +219,6 @@ export default function JapaneseResumePrintView({
                       <img
                         src={photoUrl}
                         alt="Foto Profil Siswa"
-                        crossOrigin="anonymous"
-                        referrerPolicy="no-referrer"
                         style={{ width: '30mm', height: '40mm', objectFit: 'cover', display: 'block' }}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';

@@ -18,7 +18,7 @@ import Modal from '../../components/admin/Modal';
 import FormField from '../../components/admin/FormField';
 import JapaneseResumePrintView from '../../components/resume/JapaneseResumePrintView';
 import { resumeService } from '../../services/dataService';
-import { generateJapaneseResumeData } from '../../utils/japaneseResumeHelper';
+import { generateJapaneseResumeData, getResumePhotoUrl } from '../../utils/japaneseResumeHelper';
 
 export default function AdminStudentResumePage() {
   const [resumes, setResumes] = useState([]);
@@ -196,7 +196,7 @@ export default function AdminStudentResumePage() {
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img
-            src={row.profile_photo || row.student_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.student_name || 'Siswa')}&background=0D8ABC&color=fff`}
+            src={getResumePhotoUrl(row.profile_photo || row.student_avatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.student_name || 'Siswa')}&background=0D8ABC&color=fff`}
             alt={row.student_name}
             onError={(e) => {
               e.currentTarget.onerror = null;
