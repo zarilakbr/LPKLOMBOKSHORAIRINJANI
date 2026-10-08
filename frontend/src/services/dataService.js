@@ -287,6 +287,7 @@ export const opportunityService = {
       requirements: Array.isArray(data.requirements) ? data.requirements : (data.requirements ? [data.requirements] : []),
       benefits: Array.isArray(data.benefits) ? data.benefits : (data.benefits ? [data.benefits] : []),
       deadline: data.deadline || null,
+      image: data.image && typeof data.image === 'string' && data.image.trim() ? data.image.trim() : null,
       status: data.status || 'OPEN'
     };
     const res = await apiClient.post('/admin/opportunities', payload);
@@ -307,6 +308,7 @@ export const opportunityService = {
       requirements: Array.isArray(data.requirements) ? data.requirements : (data.requirements ? [data.requirements] : []),
       benefits: Array.isArray(data.benefits) ? data.benefits : (data.benefits ? [data.benefits] : []),
       deadline: data.deadline || null,
+      image: data.image && typeof data.image === 'string' && data.image.trim() ? data.image.trim() : null,
       status: data.status || 'OPEN'
     };
     const res = await apiClient.put(`/admin/opportunities/${id}`, payload);
@@ -457,6 +459,7 @@ export const articleService = {
       category: data.category || 'Persiapan Kerja',
       tags: tagsArray,
       read_time: data.readTime || data.read_time || '5 Menit',
+      thumbnail: data.thumbnail && typeof data.thumbnail === 'string' && data.thumbnail.trim() ? data.thumbnail.trim() : null,
       status: data.status || 'PUBLISHED'
     };
     const res = await apiClient.post('/admin/articles', payload);
@@ -475,6 +478,7 @@ export const articleService = {
       category: data.category || 'Persiapan Kerja',
       tags: tagsArray,
       read_time: data.readTime || data.read_time || '5 Menit',
+      thumbnail: data.thumbnail && typeof data.thumbnail === 'string' && data.thumbnail.trim() ? data.thumbnail.trim() : null,
       status: data.status || 'PUBLISHED'
     };
     const res = await apiClient.put(`/admin/articles/${id}`, payload);

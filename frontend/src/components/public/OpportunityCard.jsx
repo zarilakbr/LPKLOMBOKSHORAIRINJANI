@@ -1,23 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Languages, ArrowRight, Banknote, BriefcaseBusiness } from 'lucide-react';
 import Badge from '../common/Badge';
 
 export default function OpportunityCard({ opportunity }) {
+  const [imgError, setImgError] = useState(false);
+  const hasImage = Boolean(opportunity.image && !imgError);
+
   return (
     <div className="card-editorial" style={{ height: '100%', padding: 0, overflow: 'hidden' }}>
       {/* Top Image Cover */}
-      <div style={{ position: 'relative', height: '190px' }}>
-        <img
-          src={opportunity.image}
-          alt={opportunity.title}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+      <div style={{ position: 'relative', height: '190px', backgroundColor: '#F1F5F9', overflow: 'hidden' }}>
+        {hasImage ? (
+          <img
+            src={opportunity.image}
+            alt={opportunity.title}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+              color: '#94A3B8',
+              gap: '0.5rem'
+            }}
+          >
+            <BriefcaseBusiness size={36} color="var(--vermilion, #E11D48)" opacity={0.85} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+              LPK Lombok Shorai Rinjani
+            </span>
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.7) 0%, transparent 60%)'
+            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.7) 0%, transparent 60%)',
+            pointerEvents: 'none'
           }}
         />
 

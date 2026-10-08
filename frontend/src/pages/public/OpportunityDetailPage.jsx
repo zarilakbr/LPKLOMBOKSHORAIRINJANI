@@ -10,9 +10,11 @@ export default function OpportunityDetailPage() {
   const { slug } = useParams();
   const [opportunity, setOpportunity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setImgError(false);
     opportunityService.getBySlug(slug).then((data) => {
       setOpportunity(data);
       setLoading(false);
@@ -80,12 +82,36 @@ export default function OpportunityDetailPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '3.5rem', alignItems: 'flex-start' }} className="opp-split">
             {/* Left Content */}
             <div>
-              <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '2.5rem' }}>
-                <img
-                  src={opportunity.image}
-                  alt={opportunity.title}
-                  style={{ width: '100%', height: '360px', objectFit: 'cover' }}
-                />
+              <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '2.5rem', backgroundColor: '#0F172A' }}>
+                {opportunity.image && !imgError ? (
+                  <img
+                    src={opportunity.image}
+                    alt={opportunity.title}
+                    loading="lazy"
+                    onError={() => setImgError(true)}
+                    style={{ width: '100%', height: '360px', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '240px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                      color: '#94A3B8',
+                      gap: '0.75rem',
+                      padding: '2rem'
+                    }}
+                  >
+                    <BriefcaseBusiness size={48} color="var(--vermilion, #E11D48)" opacity={0.85} />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+                      LPK Lombok Shorai Rinjani • Program Kerja Jepang
+                    </span>
+                  </div>
+                )}
               </div>
 
               <h2 style={{ fontSize: '1.75rem', marginBottom: '1rem' }}>Gambaran Bidang & Lingkungan Kerja</h2>

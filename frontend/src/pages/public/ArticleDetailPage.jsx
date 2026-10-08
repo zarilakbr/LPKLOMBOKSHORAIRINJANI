@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CalendarDays, Clock, User, ArrowLeft, Tag, Share2 } from 'lucide-react';
+import { CalendarDays, Clock, User, ArrowLeft, Tag, Share2, BookOpen } from 'lucide-react';
 import { articleService } from '../../services/dataService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
@@ -10,9 +10,11 @@ export default function ArticleDetailPage() {
   const { slug } = useParams();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setImgError(false);
     articleService.getBySlug(slug).then((data) => {
       setArticle(data);
       setLoading(false);
@@ -81,12 +83,36 @@ export default function ArticleDetailPage() {
       <section className="section-py" style={{ backgroundColor: 'var(--bg-surface)' }}>
         <div className="container-narrow">
           {/* Cover Image */}
-          <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '3rem', boxShadow: 'var(--shadow-card)' }}>
-            <img
-              src={article.thumbnail}
-              alt={article.title}
-              style={{ width: '100%', height: '420px', objectFit: 'cover' }}
-            />
+          <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '3rem', boxShadow: 'var(--shadow-card)', backgroundColor: '#0F172A' }}>
+            {article.thumbnail && !imgError ? (
+              <img
+                src={article.thumbnail}
+                alt={article.title}
+                loading="lazy"
+                onError={() => setImgError(true)}
+                style={{ width: '100%', height: '420px', objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '260px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                  color: '#94A3B8',
+                  gap: '0.75rem',
+                  padding: '2rem'
+                }}
+              >
+                <BookOpen size={48} color="var(--vermilion, #E11D48)" opacity={0.85} />
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+                  LPK Lombok Shorai Rinjani • Artikel & Edukasi
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Excerpt Lead */}

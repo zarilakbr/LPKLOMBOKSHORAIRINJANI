@@ -5,6 +5,7 @@ import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import FormField from '../../components/admin/FormField';
+import PhotoUrlField from '../../components/admin/PhotoUrlField';
 import { opportunityService } from '../../services/dataService';
 
 export default function AdminOpportunitiesPage() {
@@ -27,6 +28,7 @@ export default function AdminOpportunitiesPage() {
     languageReq: 'JLPT N4 atau JFT-Basic A2',
     ageReq: '19 - 35 Tahun',
     description: 'Peluang karier dan penempatan kerja di Jepang dengan fasilitas tempat tinggal, asuransi, dan pelatihan bahasa intensif.',
+    image: '',
     status: 'OPEN'
   });
 
@@ -67,6 +69,7 @@ export default function AdminOpportunitiesPage() {
       languageReq: 'JLPT N4 / JFT-Basic A2',
       ageReq: '19 - 35 Tahun',
       description: 'Peluang kerja di Jepang untuk posisi terkait. Fasilitas lengkap asuransi, akomodasi, dan bimbingan dokumen berkala.',
+      image: '',
       status: 'OPEN'
     });
     setSelectedItem(null);
@@ -83,6 +86,7 @@ export default function AdminOpportunitiesPage() {
       languageReq: item.languageReq,
       ageReq: item.ageReq,
       description: item.description,
+      image: item.image || '',
       status: item.status
     });
     setModalMode('edit');
@@ -108,7 +112,15 @@ export default function AdminOpportunitiesPage() {
       await loadData();
     } catch (err) {
       console.error('Failed to save opportunity:', err);
-      const errMsg = err.response?.data?.message || err.message || 'Gagal menyimpan peluang kerja.';
+      let errMsg = 'Gagal menyimpan peluang kerja.';
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).flat().join(' ');
+        if (validationErrors) errMsg = validationErrors;
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.message) {
+        errMsg = err.message;
+      }
       setFeedback({ type: 'error', message: errMsg });
     } finally {
       setActionLoading(false);
@@ -306,6 +318,15 @@ export default function AdminOpportunitiesPage() {
             placeholder="Jelaskan gambaran pekerjaan, fasilitas akomodasi, dan persyaratan umum..."
           />
 
+          <PhotoUrlField
+            label="Link Foto Peluang Kerja (Opsional)"
+            value={formData.image || ''}
+            onChange={(val) => setFormData({ ...formData, image: val })}
+            placeholder="https://images.unsplash.com/... atau URL foto lainnya"
+            helpText="Gunakan tautan gambar langsung (URL valid berawalan http:// atau https://, maksimal 255 karakter)."
+            previewHeight="120px"
+          />
+
           <FormField
             label="Status Perekrutan"
             type="select"
@@ -333,6 +354,17 @@ export default function AdminOpportunitiesPage() {
       >
         {selectedItem && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
+            {selectedItem.image && (
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginBottom: '0.35rem' }}>FOTO REFERENSI</div>
+                <img
+                  src={selectedItem.image}
+                  alt={selectedItem.title}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0' }}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div>
               <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>POSISI & SEKTOR</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{selectedItem.title} ({selectedItem.sector})</div>

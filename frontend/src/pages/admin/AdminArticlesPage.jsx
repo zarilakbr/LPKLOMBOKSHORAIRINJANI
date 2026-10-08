@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import DataTable from '../../components/admin/DataTable';
 import StatusBadge from '../../components/admin/StatusBadge';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import FormField from '../../components/admin/FormField';
+import PhotoUrlField from '../../components/admin/PhotoUrlField';
 import { articleService } from '../../services/dataService';
 
 export default function AdminArticlesPage() {
@@ -16,6 +17,8 @@ export default function AdminArticlesPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -24,6 +27,7 @@ export default function AdminArticlesPage() {
     excerpt: '',
     content: '',
     readTime: '5 Menit Baca',
+    thumbnail: '',
     status: 'PUBLISHED',
     tags: 'SSW, Jepang, Karier'
   });
@@ -64,6 +68,7 @@ export default function AdminArticlesPage() {
       excerpt: '',
       content: '',
       readTime: '5 Menit Baca',
+      thumbnail: '',
       status: 'PUBLISHED',
       tags: 'SSW, Jepang, Visa'
     });
@@ -80,6 +85,7 @@ export default function AdminArticlesPage() {
       excerpt: item.excerpt,
       content: item.content,
       readTime: item.readTime,
+      thumbnail: item.thumbnail || '',
       status: item.status,
       tags: Array.isArray(item.tags) ? item.tags.join(', ') : item.tags
     });
@@ -88,20 +94,40 @@ export default function AdminArticlesPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
-      tags: typeof formData.tags === 'string' ? formData.tags.split(',').map((t) => t.trim()) : formData.tags,
-      publishedDate: new Date().toISOString().slice(0, 10),
-      thumbnail: selectedItem?.thumbnail || 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=800&q=80'
-    };
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      const payload = {
+        ...formData,
+        tags: typeof formData.tags === 'string' ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean) : formData.tags,
+        publishedDate: selectedItem?.publishedDate || new Date().toISOString().slice(0, 10),
+        thumbnail: formData.thumbnail && typeof formData.thumbnail === 'string' && formData.thumbnail.trim() ? formData.thumbnail.trim() : null
+      };
 
-    if (modalMode === 'create') {
-      await articleService.create(payload);
-    } else if (modalMode === 'edit' && selectedItem) {
-      await articleService.update(selectedItem.id, payload);
+      if (modalMode === 'create') {
+        await articleService.create(payload);
+        setFeedback({ type: 'success', message: 'Artikel baru berhasil dibuat.' });
+      } else if (modalMode === 'edit' && selectedItem) {
+        await articleService.update(selectedItem.id, payload);
+        setFeedback({ type: 'success', message: 'Artikel berhasil diperbarui.' });
+      }
+      setModalMode(null);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save article:', err);
+      let errMsg = 'Gagal menyimpan artikel.';
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).flat().join(' ');
+        if (validationErrors) errMsg = validationErrors;
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setActionLoading(false);
     }
-    setModalMode(null);
-    loadData();
   };
 
   const handleDeleteConfirm = async () => {
@@ -135,6 +161,23 @@ export default function AdminArticlesPage() {
 
   return (
     <div>
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: feedback.type === 'success' ? '#16A34A' : '#EF4444',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{feedback.message}</span>
+        </div>
+      )}
+
       {error && (
         <div style={{
           padding: '0.75rem 1rem',
@@ -184,11 +227,21 @@ export default function AdminArticlesPage() {
         maxWidth="720px"
         footer={
           <>
-            <button type="button" onClick={() => setModalMode(null)} className="btn btn-outline btn-sm">
+            <button
+              type="button"
+              onClick={() => setModalMode(null)}
+              className="btn btn-outline btn-sm"
+              disabled={actionLoading}
+            >
               Batal
             </button>
-            <button type="submit" form="article-form" className="btn btn-primary btn-sm">
-              Simpan & Terbitkan
+            <button
+              type="submit"
+              form="article-form"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Menyimpan...' : 'Simpan & Terbitkan'}
             </button>
           </>
         }
@@ -223,6 +276,15 @@ export default function AdminArticlesPage() {
               onChange={(e) => setFormData({ ...formData, author: e.target.value })}
             />
           </div>
+
+          <PhotoUrlField
+            label="Link Foto Thumbnail / Cover (Opsional)"
+            value={formData.thumbnail || ''}
+            onChange={(val) => setFormData({ ...formData, thumbnail: val })}
+            placeholder="https://images.unsplash.com/... atau URL foto lainnya"
+            helpText="Gunakan tautan gambar langsung (URL valid berawalan http:// atau https://, maksimal 255 karakter)."
+            previewHeight="120px"
+          />
 
           <FormField
             label="Ringkasan Pendek (Excerpt)"
@@ -280,6 +342,17 @@ export default function AdminArticlesPage() {
       >
         {selectedItem && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
+            {selectedItem.thumbnail && (
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginBottom: '0.35rem' }}>THUMBNAIL / COVER</div>
+                <img
+                  src={selectedItem.thumbnail}
+                  alt={selectedItem.title}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0' }}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div>
               <StatusBadge status={selectedItem.status} />
               <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0.5rem 0' }}>{selectedItem.title}</h2>

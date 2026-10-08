@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Clock, ArrowRight } from 'lucide-react';
+import { CalendarDays, Clock, ArrowRight, BookOpen } from 'lucide-react';
 import Badge from '../common/Badge';
 
 export default function ArticleCard({ article }) {
+  const [imgError, setImgError] = useState(false);
+  const hasThumbnail = Boolean(article.thumbnail && !imgError);
+
   return (
     <article
       className="card-editorial"
@@ -15,17 +18,41 @@ export default function ArticleCard({ article }) {
         flexDirection: 'column'
       }}
     >
-      <div style={{ position: 'relative', height: '210px', overflow: 'hidden' }}>
-        <img
-          src={article.thumbnail}
-          alt={article.title}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+      <div style={{ position: 'relative', height: '210px', overflow: 'hidden', backgroundColor: '#F1F5F9' }}>
+        {hasThumbnail ? (
+          <img
+            src={article.thumbnail}
+            alt={article.title}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+              color: '#94A3B8',
+              gap: '0.5rem'
+            }}
+          >
+            <BookOpen size={36} color="var(--vermilion, #E11D48)" opacity={0.85} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#CBD5E1' }}>
+              LPK Lombok Shorai Rinjani
+            </span>
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 60%)'
+            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 60%)',
+            pointerEvents: 'none'
           }}
         />
 
