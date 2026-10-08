@@ -25,7 +25,16 @@ class StoreOpportunityRequest extends FormRequest
             'description'  => ['required', 'string'],
             'requirements' => ['nullable', 'array'],
             'benefits'     => ['nullable', 'array'],
+            'image'        => ['nullable', 'string', 'url:http,https', 'max:255'],
             'status'       => ['required', 'in:OPEN,CLOSED,DRAFT'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'image.url' => 'Link foto harus berupa URL valid yang diawali http:// atau https://.',
+            'image.max' => 'Link foto maksimal 255 karakter.',
         ];
     }
 

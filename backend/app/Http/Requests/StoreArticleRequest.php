@@ -23,7 +23,16 @@ class StoreArticleRequest extends FormRequest
             'category'  => ['required', 'string', 'max:100'],
             'tags'      => ['nullable', 'array'],
             'read_time' => ['nullable', 'string', 'max:50'],
+            'thumbnail' => ['nullable', 'string', 'url:http,https', 'max:255'],
             'status'    => ['required', 'in:PUBLISHED,DRAFT,ARCHIVED'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'thumbnail.url' => 'Link foto harus berupa URL valid yang diawali http:// atau https://.',
+            'thumbnail.max' => 'Link foto maksimal 255 karakter.',
         ];
     }
 
