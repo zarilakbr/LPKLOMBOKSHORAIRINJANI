@@ -27,6 +27,15 @@ class StoreProgramRequest extends FormRequest
             'curriculum'        => ['nullable', 'array'],
             'status'            => ['nullable', 'in:ACTIVE,INACTIVE'],
             'order'             => ['nullable', 'integer'],
+            'image'             => ['nullable', 'string', 'url:http,https', 'max:255'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'image.url' => 'Tautan foto referensi harus berupa URL yang valid (diawali http:// atau https://).',
+            'image.max' => 'Tautan foto referensi tidak boleh lebih dari 255 karakter.',
         ];
     }
 
