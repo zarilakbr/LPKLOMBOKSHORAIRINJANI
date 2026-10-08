@@ -16,7 +16,8 @@ class UpdateSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'institutionName'     => ['required', 'string', 'max:255'],
+            'institutionName'     => ['nullable', 'string', 'max:255'],
+            'organization_name'   => ['nullable', 'string', 'max:255'],
             'japaneseName'        => ['nullable', 'string', 'max:255'],
             'legalAccreditation'  => ['nullable', 'string', 'max:255'],
             'address'             => ['required', 'string'],
@@ -24,6 +25,10 @@ class UpdateSettingsRequest extends FormRequest
             'whatsapp'            => ['required', 'string', 'max:50'],
             'email'               => ['required', 'email', 'max:255'],
             'operatingHours'      => ['nullable', 'string', 'max:255'],
+            'operating_hours'     => ['nullable', 'string', 'max:255'],
+            'googleMapsUrl'       => ['nullable', 'string', 'max:1000'],
+            'mapsUrl'             => ['nullable', 'string', 'max:1000'],
+            'maps_url'            => ['nullable', 'string', 'max:1000'],
             'socialMedia'         => ['nullable', 'array'],
             'hero'                => ['nullable', 'array'],
         ];

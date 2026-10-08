@@ -199,5 +199,13 @@ class User extends Authenticatable
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
+
+    /**
+     * Japanese Resume (履歴書) for this user.
+     */
+    public function resume()
+    {
+        return $this->hasOne(StudentResume::class, 'user_id');
+    }
 }
 

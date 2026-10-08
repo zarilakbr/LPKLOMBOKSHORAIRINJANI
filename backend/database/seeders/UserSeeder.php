@@ -80,8 +80,9 @@ class UserSeeder extends Seeder
             ]
         );
 
-        // 3. SISWA Accounts (Peserta Didik / Calon Siswa)
-        $students = [
+        // 3. SISWA Accounts (Hanya diaktifkan jika flag SEED_DEMO_STUDENTS=true)
+        if (env('SEED_DEMO_STUDENTS', false)) {
+            $students = [
             [
                 'name' => 'Demo Siswa (Student)',
                 'email' => 'student@example.test',
@@ -207,6 +208,7 @@ class UserSeeder extends Seeder
                 ['user_id' => $user->id],
                 array_merge(['user_id' => $user->id], $data['profile'])
             );
+        }
         }
     }
 }

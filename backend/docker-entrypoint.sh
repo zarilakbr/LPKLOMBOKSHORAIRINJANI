@@ -170,6 +170,11 @@ if (!$admin) {
 }
 '
 
+# Ensure resume uploads directory exists and is writable by Apache
+mkdir -p /var/www/html/public/uploads/resumes
+chown -R www-data:www-data /var/www/html/public/uploads || true
+chmod -R 775 /var/www/html/public/uploads || true
+
 echo "Starting Apache web server..."
 
 # Ensure exactly one Apache MPM (mpm_prefork) is enabled to prevent AH00534

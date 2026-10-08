@@ -11,7 +11,9 @@ class ClassResource extends JsonResource
     {
         return [
             'id'              => $this->id,
+            'name'            => $this->class_name ?? $this->name,
             'className'       => $this->class_name ?? $this->name,
+            'class_name'      => $this->class_name ?? $this->name,
             'programId'       => $this->program_id,
             'programTitle'    => $this->program?->title ?? 'Program Umum',
             'teacherId'       => $this->teacher_id,

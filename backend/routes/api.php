@@ -36,9 +36,11 @@ use App\Http\Controllers\Api\Admin\AdminActivityLogController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminPermissionController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
+use App\Http\Controllers\Api\Admin\AdminResumeController;
 
 // Student API Controllers
 use App\Http\Controllers\Api\Student\StudentProfileController;
+use App\Http\Controllers\Api\Student\StudentResumeController;
 use App\Http\Controllers\Api\Student\StudentRegistrationController;
 use App\Http\Controllers\Api\Student\StudentClassController;
 use App\Http\Controllers\Api\Student\StudentAttendanceController;
@@ -92,6 +94,9 @@ Route::middleware(['throttle:60,1'])->group(function () {
     // FAQs
     Route::get('/faqs', [FaqController::class, 'index']);
 
+    // Public Site & Contact Settings
+    Route::get('/settings', [AdminSettingController::class, 'publicSettings']);
+
     // Student Online Registration (with stricter rate limit)
     Route::post('/registrations', [RegistrationController::class, 'store'])
         ->middleware('throttle:10,1');
@@ -103,7 +108,7 @@ Route::middleware(['throttle:60,1'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/login', [AuthController::class, 'login'])->name('login')->middleware('throttle:10,1');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 
     // Google OAuth Routes
@@ -200,6 +205,12 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:ADMIN'])->group(functi
     // Learning Materials Management (Admin CRUD & Download)
     Route::get('/materials/{id}/download', [AdminMaterialController::class, 'download']);
     Route::apiResource('materials', AdminMaterialController::class);
+
+    // Japanese Resume Management (履歴書)
+    Route::get('/resumes', [AdminResumeController::class, 'index']);
+    Route::get('/resumes/{id}', [AdminResumeController::class, 'show']);
+    Route::put('/resumes/{id}', [AdminResumeController::class, 'update']);
+    Route::post('/resumes/{id}/upload-photo', [AdminResumeController::class, 'uploadPhoto']);
 });
 
 /*
@@ -212,6 +223,11 @@ Route::prefix('student')->middleware(['auth:sanctum', 'role:SISWA'])->group(func
     // Profile
     Route::get('/profile', [StudentProfileController::class, 'show']);
     Route::match(['put', 'patch'], '/profile', [StudentProfileController::class, 'update']);
+
+    // Japanese Resume (履歴書)
+    Route::get('/resume', [StudentResumeController::class, 'show']);
+    Route::post('/resume', [StudentResumeController::class, 'save']);
+    Route::post('/resume/upload-photo', [StudentResumeController::class, 'uploadPhoto']);
 
     // Registrations
     Route::get('/registrations', [StudentRegistrationController::class, 'index']);

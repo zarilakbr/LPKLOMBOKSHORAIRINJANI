@@ -40,7 +40,10 @@ class AdminClassController extends BaseApiController
 
         $classes = $query->orderBy('start_date', 'asc')->paginate(15);
 
-        return $this->sendPaginated($classes, 'Daftar kelas pelatihan berhasil dimuat.');
+        return $this->sendPaginated(
+            $classes->through(fn ($item) => new ClassResource($item)),
+            'Daftar kelas pelatihan berhasil dimuat.'
+        );
     }
 
     public function store(StoreClassRequest $request): JsonResponse

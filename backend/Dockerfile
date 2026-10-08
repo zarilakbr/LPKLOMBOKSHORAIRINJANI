@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     && a2dismod mpm_event mpm_worker 2>/dev/null || true \
     && a2enmod mpm_prefork rewrite headers
 
+RUN printf 'upload_max_filesize=6M\npost_max_size=8M\n' > "$PHP_INI_DIR/conf.d/uploads.ini"
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html

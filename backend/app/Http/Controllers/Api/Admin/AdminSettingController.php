@@ -24,6 +24,16 @@ class AdminSettingController extends BaseApiController
         );
     }
 
+    public function publicSettings(): JsonResponse
+    {
+        $settings = $this->settingService->getAll();
+
+        return $this->sendResponse(
+            $settings,
+            'Pengaturan publik lembaga berhasil dimuat.'
+        );
+    }
+
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
         $this->settingService->updateBulk($request->validated(), $request->user());
